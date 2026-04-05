@@ -6,6 +6,8 @@
       <list>
         <option value="$PROJECT_DIR$/authservice/pom.xml" />
         <option value="$PROJECT_DIR$/patient-service/pom.xml" />
+        <option value="$PROJECT_DIR$/prescription-service/pom.xml" />
+        <option value="$PROJECT_DIR$/medicine-service/pom.xml" />
       </list>
     </option>
   </component>
