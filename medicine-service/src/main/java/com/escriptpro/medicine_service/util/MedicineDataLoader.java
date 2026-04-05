@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,7 @@ public class MedicineDataLoader implements CommandLineRunner {
     }
 
     @Override
+    @CacheEvict(value = "medicineCache", allEntries = true)
     public void run(String... args) throws Exception {
         if (medicineRepository.count() > 0) {
             return;

@@ -73,7 +73,7 @@ public class PrescriptionService {
 
         if (request.getTablets() != null) {
             request.getTablets().forEach(tabletDTO -> {
-                softValidateMedicine(tabletDTO.getMedicineName(), "TABLET");
+                softValidateMedicine(tabletDTO.getBrand(), tabletDTO.getMedicineName(), "TABLET");
 
                 Tablet tablet = new Tablet();
                 tablet.setPrescription(savedPrescription);
@@ -93,7 +93,7 @@ public class PrescriptionService {
 
         if (request.getSyrups() != null) {
             request.getSyrups().forEach(syrupDTO -> {
-                softValidateMedicine(syrupDTO.getSyrupName(), "SYRUP");
+                softValidateMedicine(syrupDTO.getBrand(), syrupDTO.getSyrupName(), "SYRUP");
 
                 Syrup syrup = new Syrup();
                 syrup.setPrescription(savedPrescription);
@@ -110,7 +110,7 @@ public class PrescriptionService {
 
         if (request.getInjections() != null) {
             request.getInjections().forEach(injectionDTO -> {
-                softValidateMedicine(injectionDTO.getMedicineName(), "INJECTION");
+                softValidateMedicine(injectionDTO.getBrand(), injectionDTO.getMedicineName(), "INJECTION");
 
                 Injection injection = new Injection();
                 injection.setPrescription(savedPrescription);
@@ -134,19 +134,36 @@ public class PrescriptionService {
         return prescriptionRepository.findByDoctorIdAndPatientIdOrderByVisitDateDescCreatedAtDesc(doctorId, patientId);
     }
 
-    private void softValidateMedicine(String query, String type) {
-        if (query == null || query.isBlank()) {
+    private void softValidateMedicine(String brand, String medicineName, String type) {
+        String query = firstNonBlank(medicineName, brand);
+        if (query == null) {
             return;
         }
 
         try {
             List<Map<String, Object>> medicines = medicineClient.searchMedicines(query, type);
             if (medicines == null || medicines.isEmpty()) {
-                log.warn("No medicine match found for query '{}' and type '{}'. Saving anyway.", query, type);
+                log.info(
+                        "No medicine match found. Accepting custom entry. brand='{}', medicineName='{}', type='{}'.",
+                        brand, medicineName, type
+                );
             }
         } catch (Exception e) {
-            log.warn("Medicine lookup failed for query '{}' and type '{}'. Saving anyway.", query, type, e);
+            log.warn(
+                    "Medicine lookup failed. Accepting custom entry. brand='{}', medicineName='{}', type='{}'.",
+                    brand, medicineName, type, e
+            );
         }
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        if (second != null && !second.isBlank()) {
+            return second;
+        }
+        return null;
     }
 
     private void validatePatientOwnership(Long patientId, String token) {
