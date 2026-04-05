@@ -5,6 +5,7 @@ import com.escriptpro.medicine_service.entity.MedicineType;
 import com.escriptpro.medicine_service.repository.MedicineRepository;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,7 +17,12 @@ public class MedicineService {
         this.medicineRepository = medicineRepository;
     }
 
+    @Cacheable(
+            value = "medicineCache",
+            key = "#query + '_' + (#type != null ? #type : 'ALL')"
+    )
     public List<Medicine> searchMedicines(String query, String type) {
+        System.out.println("🔥 DB HIT - fetching medicines");
         String normalizedQuery = query == null ? "" : query.trim();
         List<Medicine> medicines;
 

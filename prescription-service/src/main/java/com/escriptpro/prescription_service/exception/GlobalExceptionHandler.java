@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,6 +27,14 @@ public class GlobalExceptionHandler {
         return build(status, ex.getReason(), request.getRequestURI());
     }
 
+    @ExceptionHandler(HttpStatusCodeException.class)
+    public ResponseEntity<Map<String, Object>> handleDownstreamHttpStatusException(
+            HttpStatusCodeException ex,
+            HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        return build(status, ex.getStatusText(), request.getRequestURI());
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleAuthenticationException(
             AuthenticationException ex,
@@ -37,6 +47,13 @@ public class GlobalExceptionHandler {
             AccessDeniedException ex,
             HttpServletRequest request) {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleBadRequestBody(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Invalid request body", request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,18 +25,25 @@ public class PatientClient {
         headers.setBearerAuth(token);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<PatientResponseDTO> response = restTemplate.exchange(
-                "http://localhost:8082/patients/{patientId}",
-                HttpMethod.GET,
-                entity,
-                PatientResponseDTO.class,
-                patientId
-        );
+        try {
+            ResponseEntity<PatientResponseDTO> response = restTemplate.exchange(
+                    "http://localhost:8082/patients/{patientId}",
+                    HttpMethod.GET,
+                    entity,
+                    PatientResponseDTO.class,
+                    patientId
+            );
 
-        PatientResponseDTO body = response.getBody();
-        if (body == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient not found");
+            PatientResponseDTO body = response.getBody();
+            if (body == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient not found");
+            }
+            return body;
+        } catch (HttpStatusCodeException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(ex.getStatusCode().value()),
+                    "Patient ownership validation failed"
+            );
         }
-        return body;
     }
 }
