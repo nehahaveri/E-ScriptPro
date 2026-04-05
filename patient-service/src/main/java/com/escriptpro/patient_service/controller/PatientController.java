@@ -42,6 +42,13 @@ public class PatientController {
         return patientService.savePatient(patient, email, token);
     }
 
+    @GetMapping
+    public List<Patient> getPatients(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = authorizationHeader.substring(7);
+        String email = jwtUtil.extractUsername(token);
+        return patientService.getPatientsByDoctorEmail(email, token);
+    }
+
     @GetMapping("/{doctorId}")
     public List<Patient> getPatientsByDoctorId(@PathVariable Long doctorId) {
         return patientService.getPatientsByDoctorId(doctorId);

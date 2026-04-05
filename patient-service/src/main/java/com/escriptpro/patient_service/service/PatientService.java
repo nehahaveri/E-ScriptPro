@@ -47,4 +47,25 @@ public class PatientService {
     public List<Patient> getPatientsByDoctorId(Long doctorId) {
         return patientRepository.findByDoctorId(doctorId);
     }
+
+    public List<Patient> getPatientsByDoctorEmail(String email, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<DoctorResponseDTO> response = restTemplate.exchange(
+                "http://localhost:8086/doctors/email/{email}",
+                HttpMethod.GET,
+                entity,
+                DoctorResponseDTO.class,
+                email
+        );
+        DoctorResponseDTO doctorResponse = response.getBody();
+
+        if (doctorResponse == null || doctorResponse.getId() == null) {
+            throw new RuntimeException("Doctor not found for email: " + email);
+        }
+
+        return patientRepository.findByDoctorId(doctorResponse.getId());
+    }
 }
