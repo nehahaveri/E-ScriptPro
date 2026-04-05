@@ -32,6 +32,7 @@ public class PrescriptionService {
     private final DoctorClient doctorClient;
     private final PatientClient patientClient;
     private final MedicineClient medicineClient;
+    private final KafkaProducerService kafkaProducerService;
     private final PdfClient pdfClient;
 
     public PrescriptionService(
@@ -42,6 +43,7 @@ public class PrescriptionService {
             DoctorClient doctorClient,
             PatientClient patientClient,
             MedicineClient medicineClient,
+            KafkaProducerService kafkaProducerService,
             PdfClient pdfClient) {
         this.prescriptionRepository = prescriptionRepository;
         this.tabletRepository = tabletRepository;
@@ -50,6 +52,7 @@ public class PrescriptionService {
         this.doctorClient = doctorClient;
         this.patientClient = patientClient;
         this.medicineClient = medicineClient;
+        this.kafkaProducerService = kafkaProducerService;
         this.pdfClient = pdfClient;
     }
 
@@ -66,6 +69,7 @@ public class PrescriptionService {
         prescription.setVisitDate(LocalDate.now());
 
         Prescription savedPrescription = prescriptionRepository.save(prescription);
+        kafkaProducerService.sendPrescriptionEvent(request);
 
         if (request.getTablets() != null) {
             request.getTablets().forEach(tabletDTO -> {

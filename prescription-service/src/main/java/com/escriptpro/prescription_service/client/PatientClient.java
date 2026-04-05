@@ -40,10 +40,31 @@ public class PatientClient {
             }
             return body;
         } catch (HttpStatusCodeException ex) {
+            String message = extractMessage(ex.getResponseBodyAsString());
             throw new ResponseStatusException(
                     HttpStatus.valueOf(ex.getStatusCode().value()),
-                    "Patient ownership validation failed"
+                    message
             );
         }
+    }
+
+    private String extractMessage(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return "Patient ownership validation failed";
+        }
+
+        String marker = "\"message\":\"";
+        int start = responseBody.indexOf(marker);
+        if (start == -1) {
+            return "Patient ownership validation failed";
+        }
+
+        int valueStart = start + marker.length();
+        int valueEnd = responseBody.indexOf('"', valueStart);
+        if (valueEnd == -1) {
+            return "Patient ownership validation failed";
+        }
+
+        return responseBody.substring(valueStart, valueEnd);
     }
 }
