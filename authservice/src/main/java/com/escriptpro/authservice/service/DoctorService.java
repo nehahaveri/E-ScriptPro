@@ -1,6 +1,7 @@
 package com.escriptpro.authservice.service;
 
 import com.escriptpro.authservice.dto.AuthResponseDTO;
+import com.escriptpro.authservice.dto.DoctorResponseDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
 import com.escriptpro.authservice.entity.Doctor;
@@ -47,5 +48,12 @@ public class DoctorService {
 
         String token = jwtUtil.generateToken(doctor.getEmail());
         return new AuthResponseDTO("Login successful", token);
+    }
+
+    public DoctorResponseDTO getDoctorByEmail(String email) {
+        Doctor doctor = doctorRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+
+        return new DoctorResponseDTO(doctor.getId(), doctor.getEmail());
     }
 }
