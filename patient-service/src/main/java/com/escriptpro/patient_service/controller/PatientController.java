@@ -39,7 +39,7 @@ public class PatientController {
         patient.setGender(patientRequest.getGender());
         patient.setMobile(patientRequest.getMobile());
 
-        return patientService.savePatient(patient, email);
+        return patientService.savePatient(patient, email, token);
     }
 
     @GetMapping("/{doctorId}")

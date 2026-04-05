@@ -1,7 +1,8 @@
 package com.escriptpro.prescription_service.service;
 
-import com.escriptpro.prescription_service.client.AuthClient;
+import com.escriptpro.prescription_service.client.DoctorClient;
 import com.escriptpro.prescription_service.client.MedicineClient;
+import com.escriptpro.prescription_service.client.PdfClient;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
 import com.escriptpro.prescription_service.entity.Injection;
 import com.escriptpro.prescription_service.entity.Prescription;
@@ -27,26 +28,29 @@ public class PrescriptionService {
     private final TabletRepository tabletRepository;
     private final SyrupRepository syrupRepository;
     private final InjectionRepository injectionRepository;
-    private final AuthClient authClient;
+    private final DoctorClient doctorClient;
     private final MedicineClient medicineClient;
+    private final PdfClient pdfClient;
 
     public PrescriptionService(
             PrescriptionRepository prescriptionRepository,
             TabletRepository tabletRepository,
             SyrupRepository syrupRepository,
             InjectionRepository injectionRepository,
-            AuthClient authClient,
-            MedicineClient medicineClient) {
+            DoctorClient doctorClient,
+            MedicineClient medicineClient,
+            PdfClient pdfClient) {
         this.prescriptionRepository = prescriptionRepository;
         this.tabletRepository = tabletRepository;
         this.syrupRepository = syrupRepository;
         this.injectionRepository = injectionRepository;
-        this.authClient = authClient;
+        this.doctorClient = doctorClient;
         this.medicineClient = medicineClient;
+        this.pdfClient = pdfClient;
     }
 
-    public void createPrescription(PrescriptionRequestDTO request, String email) {
-        Long doctorId = authClient.getDoctorIdByEmail(email);
+    public byte[] createPrescription(PrescriptionRequestDTO request, String email, String token) {
+        Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
 
         Prescription prescription = new Prescription();
         prescription.setDoctorId(doctorId);
@@ -105,6 +109,10 @@ public class PrescriptionService {
                 injectionRepository.save(injection);
             });
         }
+
+        byte[] pdf = pdfClient.generatePdf(request);
+        log.info("Prescription PDF generated successfully. Size={} bytes", pdf != null ? pdf.length : 0);
+        return pdf;
     }
 
     private void softValidateMedicine(String query, String type) {

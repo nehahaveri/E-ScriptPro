@@ -23,13 +23,17 @@ public class PrescriptionController {
     }
 
     @PostMapping
-    public ResponseEntity<String> createPrescription(
+    public ResponseEntity<byte[]> createPrescription(
             @RequestBody PrescriptionRequestDTO request,
             HttpServletRequest httpRequest) {
         String authorizationHeader = httpRequest.getHeader("Authorization");
         String token = authorizationHeader.substring(7);
         String email = jwtUtil.extractUsername(token);
-        prescriptionService.createPrescription(request, email);
-        return ResponseEntity.ok("Prescription created successfully");
+        byte[] pdf = prescriptionService.createPrescription(request, email, token);
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=prescription.pdf")
+                .body(pdf);
     }
 }
