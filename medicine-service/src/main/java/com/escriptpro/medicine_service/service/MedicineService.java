@@ -17,20 +17,24 @@ public class MedicineService {
     }
 
     public List<Medicine> searchMedicines(String query, String type) {
+        String normalizedQuery = query == null ? "" : query.trim();
         List<Medicine> medicines;
 
         if (type != null && !type.isBlank()) {
             MedicineType medicineType = MedicineType.valueOf(type.toUpperCase(Locale.ROOT));
-            medicines = medicineRepository.findByMedicineNameContainingIgnoreCaseAndType(
-                    query,
-                    medicineType
+            medicines = medicineRepository.findTop10ByTypeAndMedicineNameContainingIgnoreCaseOrTypeAndBrandContainingIgnoreCase(
+                    medicineType,
+                    normalizedQuery,
+                    medicineType,
+                    normalizedQuery
             );
         } else {
-            medicines = medicineRepository.findByMedicineNameContainingIgnoreCase(query);
+            medicines = medicineRepository.findTop10ByMedicineNameContainingIgnoreCaseOrBrandContainingIgnoreCase(
+                    normalizedQuery,
+                    normalizedQuery
+            );
         }
 
-        return medicines.stream()
-                .limit(10)
-                .toList();
+        return medicines;
     }
 }

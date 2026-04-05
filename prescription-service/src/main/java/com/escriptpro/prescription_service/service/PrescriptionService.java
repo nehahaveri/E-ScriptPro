@@ -2,6 +2,7 @@ package com.escriptpro.prescription_service.service;
 
 import com.escriptpro.prescription_service.client.DoctorClient;
 import com.escriptpro.prescription_service.client.MedicineClient;
+import com.escriptpro.prescription_service.client.PatientClient;
 import com.escriptpro.prescription_service.client.PdfClient;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
 import com.escriptpro.prescription_service.entity.Injection;
@@ -29,6 +30,7 @@ public class PrescriptionService {
     private final SyrupRepository syrupRepository;
     private final InjectionRepository injectionRepository;
     private final DoctorClient doctorClient;
+    private final PatientClient patientClient;
     private final MedicineClient medicineClient;
     private final PdfClient pdfClient;
 
@@ -38,6 +40,7 @@ public class PrescriptionService {
             SyrupRepository syrupRepository,
             InjectionRepository injectionRepository,
             DoctorClient doctorClient,
+            PatientClient patientClient,
             MedicineClient medicineClient,
             PdfClient pdfClient) {
         this.prescriptionRepository = prescriptionRepository;
@@ -45,12 +48,14 @@ public class PrescriptionService {
         this.syrupRepository = syrupRepository;
         this.injectionRepository = injectionRepository;
         this.doctorClient = doctorClient;
+        this.patientClient = patientClient;
         this.medicineClient = medicineClient;
         this.pdfClient = pdfClient;
     }
 
     public byte[] createPrescription(PrescriptionRequestDTO request, String email, String token) {
         Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
+        validatePatientOwnership(request.getPatientId(), token);
 
         Prescription prescription = new Prescription();
         prescription.setDoctorId(doctorId);
@@ -101,8 +106,12 @@ public class PrescriptionService {
 
         if (request.getInjections() != null) {
             request.getInjections().forEach(injectionDTO -> {
+                softValidateMedicine(injectionDTO.getMedicineName(), "INJECTION");
+
                 Injection injection = new Injection();
                 injection.setPrescription(savedPrescription);
+                injection.setBrand(injectionDTO.getBrand());
+                injection.setMedicineName(injectionDTO.getMedicineName());
                 injection.setDaily(injectionDTO.getDaily());
                 injection.setAlternateDay(injectionDTO.getAlternateDay());
                 injection.setWeeklyOnce(injectionDTO.getWeeklyOnce());
@@ -113,6 +122,12 @@ public class PrescriptionService {
         byte[] pdf = pdfClient.generatePdf(request);
         log.info("Prescription PDF generated successfully. Size={} bytes", pdf != null ? pdf.length : 0);
         return pdf;
+    }
+
+    public List<Prescription> getPrescriptionHistory(Long patientId, String email, String token) {
+        Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
+        validatePatientOwnership(patientId, token);
+        return prescriptionRepository.findByDoctorIdAndPatientIdOrderByVisitDateDescCreatedAtDesc(doctorId, patientId);
     }
 
     private void softValidateMedicine(String query, String type) {
@@ -128,5 +143,9 @@ public class PrescriptionService {
         } catch (Exception e) {
             log.warn("Medicine lookup failed for query '{}' and type '{}'. Saving anyway.", query, type, e);
         }
+    }
+
+    private void validatePatientOwnership(Long patientId, String token) {
+        patientClient.getPatientById(patientId, token);
     }
 }

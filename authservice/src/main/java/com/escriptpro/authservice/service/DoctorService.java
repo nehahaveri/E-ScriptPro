@@ -9,8 +9,10 @@ import com.escriptpro.authservice.repository.AuthUserRepository;
 import com.escriptpro.authservice.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class DoctorService {
@@ -35,7 +37,7 @@ public class DoctorService {
 
     public AuthResponseDTO registerDoctor(SignupRequestDTO signupRequestDTO) {
         if (authUserRepository.findByEmail(signupRequestDTO.getEmail()).isPresent()) {
-            throw new RuntimeException("Doctor with this email already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor with this email already exists");
         }
 
         AuthUser authUser = new AuthUser();
@@ -56,10 +58,10 @@ public class DoctorService {
 
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {
         AuthUser authUser = authUserRepository.findByEmail(loginRequestDTO.getEmail())
-                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctor not found"));
 
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), authUser.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid password");
         }
 
         String token = jwtUtil.generateToken(authUser.getEmail());

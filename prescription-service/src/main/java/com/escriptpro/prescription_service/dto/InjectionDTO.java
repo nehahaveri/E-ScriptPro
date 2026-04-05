@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class InjectionDTO {
 
+    private String brand;
+
+    private String medicineName;
+
     private Boolean daily;
 
     private Boolean alternateDay;

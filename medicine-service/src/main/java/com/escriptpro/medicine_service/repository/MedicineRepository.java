@@ -7,7 +7,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MedicineRepository extends JpaRepository<Medicine, Long> {
 
-    List<Medicine> findByMedicineNameContainingIgnoreCase(String name);
+    List<Medicine> findTop10ByMedicineNameContainingIgnoreCaseOrBrandContainingIgnoreCase(String name, String brand);
 
-    List<Medicine> findByMedicineNameContainingIgnoreCaseAndType(String name, MedicineType type);
+    List<Medicine> findTop10ByTypeAndMedicineNameContainingIgnoreCaseOrTypeAndBrandContainingIgnoreCase(
+            MedicineType firstType,
+            String name,
+            MedicineType secondType,
+            String brand);
 }

@@ -53,8 +53,6 @@ public class JwtFilter extends OncePerRequestFilter {
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                System.out.println("AUTH SET FOR: " + username); // debug
             }
         }
 

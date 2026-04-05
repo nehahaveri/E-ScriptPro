@@ -1,6 +1,6 @@
 package com.escriptpro.prescription_service.client;
 
-import com.escriptpro.prescription_service.dto.DoctorResponseDTO;
+import com.escriptpro.prescription_service.dto.PatientResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -11,32 +11,31 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 @Component
-public class DoctorClient {
+public class PatientClient {
 
     private final RestTemplate restTemplate;
 
-    public DoctorClient(RestTemplate restTemplate) {
+    public PatientClient(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
-    public Long getDoctorIdByEmail(String email, String token) {
+    public PatientResponseDTO getPatientById(Long patientId, String token) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<DoctorResponseDTO> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/email/{email}",
+        ResponseEntity<PatientResponseDTO> response = restTemplate.exchange(
+                "http://localhost:8082/patients/{patientId}",
                 HttpMethod.GET,
                 entity,
-                DoctorResponseDTO.class,
-                email
+                PatientResponseDTO.class,
+                patientId
         );
-        DoctorResponseDTO doctorResponse = response.getBody();
 
-        if (doctorResponse == null || doctorResponse.getId() == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctor not found for email: " + email);
+        PatientResponseDTO body = response.getBody();
+        if (body == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient not found");
         }
-
-        return doctorResponse.getId();
+        return body;
     }
 }

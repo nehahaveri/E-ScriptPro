@@ -26,6 +26,10 @@ public class Injection {
     @JoinColumn(name = "prescription_id")
     private Prescription prescription;
 
+    private String brand;
+
+    private String medicineName;
+
     private Boolean daily;
 
     private Boolean alternateDay;

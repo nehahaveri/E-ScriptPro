@@ -6,13 +6,20 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "medicine_master")
+@Table(
+        name = "medicine_master",
+        indexes = {
+                @Index(name = "idx_medicine_name", columnList = "medicine_name"),
+                @Index(name = "idx_brand", columnList = "brand")
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -6,15 +6,22 @@ import com.escriptpro.pdf_service.dto.SyrupDTO;
 import com.escriptpro.pdf_service.dto.TabletDTO;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
+import com.lowagie.text.Font;
 import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PdfService {
 
     private static final String DOCTOR_NAME = "Doctor Name: Dr. John Doe";
+    private static final Font SECTION_FONT = new Font(Font.HELVETICA, 12, Font.BOLD);
 
     public byte[] generatePrescriptionPdf(PrescriptionRequestDTO request) {
         Document document = new Document();
@@ -32,39 +39,41 @@ public class PdfService {
             document.add(new Paragraph("Diagnosis: " + safe(request.getDiagnosis())));
             document.add(new Paragraph(" "));
 
-            document.add(new Paragraph("Tablets:"));
+            List<String[]> tabletRows = new ArrayList<>();
             if (request.getTablets() != null && !request.getTablets().isEmpty()) {
                 for (TabletDTO tablet : request.getTablets()) {
-                    document.add(new Paragraph("- " + safe(tablet.getBrand()) + " " + safe(tablet.getMedicineName())));
-                    document.add(new Paragraph("  timing: " + timingString(tablet.getMorning(), tablet.getAfternoon(), tablet.getNight())));
-                    document.add(new Paragraph("  duration: " + safe(tablet.getDuration())));
+                    tabletRows.add(new String[]{
+                            safe(tablet.getBrand()) + " " + safe(tablet.getMedicineName()),
+                            timingString(tablet.getMorning(), tablet.getAfternoon(), tablet.getNight()),
+                            safe(tablet.getDuration())
+                    });
                 }
-            } else {
-                document.add(new Paragraph("- None"));
             }
-            document.add(new Paragraph(" "));
+            addMedicineTable(document, "Tablets", tabletRows);
 
-            document.add(new Paragraph("Syrups:"));
+            List<String[]> syrupRows = new ArrayList<>();
             if (request.getSyrups() != null && !request.getSyrups().isEmpty()) {
                 for (SyrupDTO syrup : request.getSyrups()) {
-                    document.add(new Paragraph("- " + safe(syrup.getBrand()) + " " + safe(syrup.getSyrupName())));
-                    document.add(new Paragraph("  timing: " + timingString(syrup.getMorning(), syrup.getAfternoon(), syrup.getNight())));
-                    document.add(new Paragraph("  duration: " + safe(syrup.getDuration())));
+                    syrupRows.add(new String[]{
+                            safe(syrup.getBrand()) + " " + safe(syrup.getSyrupName()),
+                            timingString(syrup.getMorning(), syrup.getAfternoon(), syrup.getNight()),
+                            safe(syrup.getDuration())
+                    });
                 }
-            } else {
-                document.add(new Paragraph("- None"));
             }
-            document.add(new Paragraph(" "));
+            addMedicineTable(document, "Syrups", syrupRows);
 
-            document.add(new Paragraph("Injections:"));
+            List<String[]> injectionRows = new ArrayList<>();
             if (request.getInjections() != null && !request.getInjections().isEmpty()) {
                 for (InjectionDTO injection : request.getInjections()) {
-                    document.add(new Paragraph("- schedule: " + injectionSchedule(injection)));
+                    injectionRows.add(new String[]{
+                            safe(injection.getBrand()) + " " + safe(injection.getMedicineName()),
+                            injectionSchedule(injection),
+                            "-"
+                    });
                 }
-            } else {
-                document.add(new Paragraph("- None"));
             }
-            document.add(new Paragraph(" "));
+            addMedicineTable(document, "Injections", injectionRows);
 
             document.add(new Paragraph("Advice: " + safe(request.getAdvice())));
             document.add(new Paragraph("Consultation Fee: " + safe(request.getConsultationFee())));
@@ -78,6 +87,42 @@ public class PdfService {
         }
 
         return outputStream.toByteArray();
+    }
+
+    private void addMedicineTable(Document document, String title, List<String[]> rows) throws DocumentException {
+        document.add(new Paragraph(title + ":", SECTION_FONT));
+
+        PdfPTable table = new PdfPTable(3);
+        table.setWidthPercentage(100);
+        table.setSpacingBefore(6f);
+        table.setSpacingAfter(10f);
+
+        addHeaderCell(table, "Medicine");
+        addHeaderCell(table, "Timing");
+        addHeaderCell(table, "Duration");
+
+        if (rows == null || rows.isEmpty()) {
+            addBodyCell(table, "None");
+            addBodyCell(table, "-");
+            addBodyCell(table, "-");
+        } else {
+            for (String[] row : rows) {
+                addBodyCell(table, safe(row[0]));
+                addBodyCell(table, safe(row[1]));
+                addBodyCell(table, safe(row[2]));
+            }
+        }
+
+        document.add(table);
+    }
+
+    private void addHeaderCell(PdfPTable table, String value) {
+        PdfPCell cell = new PdfPCell(new Phrase(value));
+        table.addCell(cell);
+    }
+
+    private void addBodyCell(PdfPTable table, String value) {
+        table.addCell(new Phrase(value));
     }
 
     private String safe(Object value) {
