@@ -89,3 +89,4 @@ public class MedicineService {
         return MedicineType.valueOf(type.toUpperCase(Locale.ROOT));
     }
 }
+// beta1 branch
