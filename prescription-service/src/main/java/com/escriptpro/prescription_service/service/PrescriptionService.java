@@ -149,6 +149,7 @@ public class PrescriptionService {
                         "No medicine match found. Accepting custom entry. brand='{}', medicineName='{}', type='{}'.",
                         brand, medicineName, type
                 );
+                medicineClient.registerCustomSuggestion(type, brand, medicineName);
             }
         } catch (Exception e) {
             log.warn(

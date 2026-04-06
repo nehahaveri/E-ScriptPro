@@ -1,10 +1,13 @@
 package com.escriptpro.medicine_service.controller;
 
+import com.escriptpro.medicine_service.dto.MedicineCustomSuggestionRequest;
 import com.escriptpro.medicine_service.entity.Medicine;
 import com.escriptpro.medicine_service.service.MedicineService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,5 +27,25 @@ public class MedicineController {
             @RequestParam String query,
             @RequestParam(required = false) String type) {
         return ResponseEntity.ok(medicineService.searchMedicines(query, type));
+    }
+
+    @GetMapping("/search/brands")
+    public ResponseEntity<List<String>> searchBrandSuggestions(
+            @RequestParam String query,
+            @RequestParam(required = false) String type) {
+        return ResponseEntity.ok(medicineService.searchBrandSuggestions(query, type));
+    }
+
+    @GetMapping("/search/names")
+    public ResponseEntity<List<String>> searchNameSuggestions(
+            @RequestParam String query,
+            @RequestParam(required = false) String type) {
+        return ResponseEntity.ok(medicineService.searchNameSuggestions(query, type));
+    }
+
+    @PostMapping("/suggestions/custom")
+    public ResponseEntity<Void> registerCustomSuggestion(@RequestBody MedicineCustomSuggestionRequest request) {
+        medicineService.registerCustomSuggestion(request.getType(), request.getBrand(), request.getMedicineName());
+        return ResponseEntity.ok().build();
     }
 }

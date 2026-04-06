@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import api from '../services/api'
 
 const emptyTablet = {
@@ -10,8 +10,8 @@ const emptyTablet = {
   withWater: true,
   chew: false,
   instruction: 'AFTER_FOOD',
-  duration: 5,
-  quantity: 10,
+  duration: '',
+  quantity: '',
 }
 
 const emptySyrup = {
@@ -20,8 +20,8 @@ const emptySyrup = {
   morning: false,
   afternoon: false,
   night: false,
-  duration: 5,
-  quantity: 1,
+  duration: '',
+  quantity: '',
 }
 
 const emptyInjection = {
@@ -70,6 +70,7 @@ function Dashboard() {
   const [syrups, setSyrups] = useState([])
   const [injections, setInjections] = useState([])
   const [suggestions, setSuggestions] = useState({})
+  const suggestionCacheRef = useRef(new Map())
 
   const selectedPatientFromList = useMemo(
     () => patients.find((p) => p.id === selectedPatientId) || null,
@@ -94,6 +95,13 @@ function Dashboard() {
     loadPatientDetails(selectedPatientId)
     loadPrescriptionHistory(selectedPatientId)
   }, [selectedPatientId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchPatients(patientQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [patientQuery])
 
   const loadInitialData = async () => {
     setLoading(true)
@@ -210,15 +218,16 @@ function Dashboard() {
     }
   }
 
-  const searchPatients = async () => {
+  const searchPatients = async (queryOverride) => {
     try {
-      if (!patientQuery.trim()) {
+      const normalizedQuery = (queryOverride ?? patientQuery).trim()
+      if (!normalizedQuery) {
         const response = await api.get('/patients')
         setPatients(response.data || [])
         return
       }
       const response = await api.get('/patients/search', {
-        params: { query: patientQuery.trim() },
+        params: { query: normalizedQuery },
       })
       setPatients(response.data || [])
     } catch (err) {
@@ -226,16 +235,31 @@ function Dashboard() {
     }
   }
 
-  const fetchMedicineSuggestions = async (type, key, query) => {
-    if (!query || query.trim().length < 2) {
+  const fetchMedicineSuggestions = async (type, key, query, field) => {
+    if (!query || query.trim().length < 1) {
       setSuggestions((prev) => ({ ...prev, [key]: [] }))
       return
     }
     try {
-      const response = await api.get('/medicines/search', {
-        params: { query: query.trim(), type },
+      const normalizedQuery = query.trim().toLowerCase()
+      const cacheKey = `${type}_${field}_${normalizedQuery}`
+      const cached = suggestionCacheRef.current.get(cacheKey)
+      if (cached) {
+        setSuggestions((prev) => ({ ...prev, [key]: cached }))
+        return
+      }
+
+      const endpoint = field === 'brand' ? '/medicines/search/brands' : '/medicines/search/names'
+      const response = await api.get(endpoint, {
+        params: { query: normalizedQuery, type },
       })
-      setSuggestions((prev) => ({ ...prev, [key]: (response.data || []).slice(0, 6) }))
+      const data = Array.isArray(response.data) ? response.data : []
+      const values = [
+        ...new Set(data.map((item) => (typeof item === 'string' ? item : '')).filter(Boolean)),
+      ].slice(0, 10)
+
+      suggestionCacheRef.current.set(cacheKey, values)
+      setSuggestions((prev) => ({ ...prev, [key]: values }))
     } catch {
       setSuggestions((prev) => ({ ...prev, [key]: [] }))
     }
@@ -563,95 +587,109 @@ function Dashboard() {
               onAdd={() => setTablets((prev) => [...prev, { ...emptyTablet }])}
               onRemove={(idx) => setTablets((prev) => prev.filter((_, i) => i !== idx))}
               renderItem={(row, index) => (
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-                  <AutocompleteInput
-                    value={row.brand}
-                    placeholder="Brand"
-                    suggestions={suggestions[`tablet-brand-${index}`] || []}
-                    onChange={(value) => {
-                      onTabletChange(index, 'brand', value)
-                      fetchMedicineSuggestions('TABLET', `tablet-brand-${index}`, value)
-                    }}
-                    onSelect={(item) => {
-                      onTabletChange(index, 'brand', item.brand || '')
-                      onTabletChange(index, 'medicineName', item.medicineName || '')
-                    }}
-                  />
-                  <AutocompleteInput
-                    value={row.medicineName}
-                    placeholder="Medicine Name"
-                    suggestions={suggestions[`tablet-name-${index}`] || []}
-                    onChange={(value) => {
-                      onTabletChange(index, 'medicineName', value)
-                      fetchMedicineSuggestions('TABLET', `tablet-name-${index}`, value)
-                    }}
-                    onSelect={(item) => {
-                      onTabletChange(index, 'brand', item.brand || '')
-                      onTabletChange(index, 'medicineName', item.medicineName || '')
-                    }}
-                  />
-                  <input
-                    type="number"
-                    className="rounded border px-2 py-2 text-sm"
-                    value={row.duration}
-                    onChange={(e) => onTabletChange(index, 'duration', Number(e.target.value))}
-                    placeholder="Duration"
-                  />
-                  <input
-                    type="number"
-                    className="rounded border px-2 py-2 text-sm"
-                    value={row.quantity}
-                    onChange={(e) => onTabletChange(index, 'quantity', Number(e.target.value))}
-                    placeholder="Qty"
-                  />
-                  <select
-                    className="rounded border px-2 py-2 text-sm"
-                    value={row.instruction}
-                    onChange={(e) => onTabletChange(index, 'instruction', e.target.value)}
-                  >
-                    <option value="BEFORE_FOOD">BEFORE_FOOD</option>
-                    <option value="AFTER_FOOD">AFTER_FOOD</option>
-                    <option value="EMPTY_STOMACH">EMPTY_STOMACH</option>
-                  </select>
-                  <div className="flex items-center gap-2 text-xs">
-                    <label>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                    <AutocompleteInput
+                      value={row.brand}
+                      placeholder="Tablet Brand"
+                      suggestions={suggestions[`tablet-brand-${index}`] || []}
+                      onChange={(value) => {
+                        onTabletChange(index, 'brand', value)
+                        fetchMedicineSuggestions('TABLET', `tablet-brand-${index}`, value, 'brand')
+                      }}
+                      onSelect={(value) => {
+                        onTabletChange(index, 'brand', value)
+                        setSuggestions((prev) => ({ ...prev, [`tablet-brand-${index}`]: [] }))
+                      }}
+                    />
+                    <AutocompleteInput
+                      value={row.medicineName}
+                      placeholder="Tablet Name"
+                      suggestions={suggestions[`tablet-name-${index}`] || []}
+                      onChange={(value) => {
+                        onTabletChange(index, 'medicineName', value)
+                        fetchMedicineSuggestions('TABLET', `tablet-name-${index}`, value, 'name')
+                      }}
+                      onSelect={(value) => {
+                        onTabletChange(index, 'medicineName', value)
+                        setSuggestions((prev) => ({ ...prev, [`tablet-name-${index}`]: [] }))
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="rounded border px-2 py-2 text-sm"
+                      value={row.duration}
+                      onChange={(e) =>
+                        onTabletChange(
+                          index,
+                          'duration',
+                          e.target.value === '' ? '' : Number(e.target.value)
+                        )
+                      }
+                      placeholder="Duration (days)"
+                    />
+                    <input
+                      type="number"
+                      className="rounded border px-2 py-2 text-sm"
+                      value={row.quantity}
+                      onChange={(e) =>
+                        onTabletChange(
+                          index,
+                          'quantity',
+                          e.target.value === '' ? '' : Number(e.target.value)
+                        )
+                      }
+                      placeholder="Quantity (tablets)"
+                    />
+                    <select
+                      className="rounded border px-2 py-2 text-sm"
+                      value={row.instruction}
+                      onChange={(e) => onTabletChange(index, 'instruction', e.target.value)}
+                    >
+                      <option value="BEFORE_FOOD">Before Food</option>
+                      <option value="AFTER_FOOD">After Food</option>
+                      <option value="EMPTY_STOMACH">Empty Stomach</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.morning}
                         onChange={(e) => onTabletChange(index, 'morning', e.target.checked)}
-                      />{' '}
-                      M
+                      />
+                      Morning
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.afternoon}
                         onChange={(e) => onTabletChange(index, 'afternoon', e.target.checked)}
-                      />{' '}
-                      A
+                      />
+                      Afternoon
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.night}
                         onChange={(e) => onTabletChange(index, 'night', e.target.checked)}
-                      />{' '}
-                      N
+                      />
+                      Night
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.withWater}
                         onChange={(e) => onTabletChange(index, 'withWater', e.target.checked)}
-                      />{' '}
-                      Water
+                      />
+                      With Water
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.chew}
                         onChange={(e) => onTabletChange(index, 'chew', e.target.checked)}
-                      />{' '}
+                      />
                       Chew
                     </label>
                   </div>
@@ -665,71 +703,85 @@ function Dashboard() {
               onAdd={() => setSyrups((prev) => [...prev, { ...emptySyrup }])}
               onRemove={(idx) => setSyrups((prev) => prev.filter((_, i) => i !== idx))}
               renderItem={(row, index) => (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                  <AutocompleteInput
-                    value={row.brand}
-                    placeholder="Brand"
-                    suggestions={suggestions[`syrup-brand-${index}`] || []}
-                    onChange={(value) => {
-                      onSyrupChange(index, 'brand', value)
-                      fetchMedicineSuggestions('SYRUP', `syrup-brand-${index}`, value)
-                    }}
-                    onSelect={(item) => {
-                      onSyrupChange(index, 'brand', item.brand || '')
-                      onSyrupChange(index, 'syrupName', item.medicineName || '')
-                    }}
-                  />
-                  <AutocompleteInput
-                    value={row.syrupName}
-                    placeholder="Syrup Name"
-                    suggestions={suggestions[`syrup-name-${index}`] || []}
-                    onChange={(value) => {
-                      onSyrupChange(index, 'syrupName', value)
-                      fetchMedicineSuggestions('SYRUP', `syrup-name-${index}`, value)
-                    }}
-                    onSelect={(item) => {
-                      onSyrupChange(index, 'brand', item.brand || '')
-                      onSyrupChange(index, 'syrupName', item.medicineName || '')
-                    }}
-                  />
-                  <input
-                    type="number"
-                    className="rounded border px-2 py-2 text-sm"
-                    value={row.duration}
-                    onChange={(e) => onSyrupChange(index, 'duration', Number(e.target.value))}
-                    placeholder="Duration"
-                  />
-                  <input
-                    type="number"
-                    className="rounded border px-2 py-2 text-sm"
-                    value={row.quantity}
-                    onChange={(e) => onSyrupChange(index, 'quantity', Number(e.target.value))}
-                    placeholder="Qty"
-                  />
-                  <div className="flex items-center gap-2 text-xs">
-                    <label>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <AutocompleteInput
+                      value={row.brand}
+                      placeholder="Syrup Brand"
+                      suggestions={suggestions[`syrup-brand-${index}`] || []}
+                      onChange={(value) => {
+                        onSyrupChange(index, 'brand', value)
+                        fetchMedicineSuggestions('SYRUP', `syrup-brand-${index}`, value, 'brand')
+                      }}
+                      onSelect={(value) => {
+                        onSyrupChange(index, 'brand', value)
+                        setSuggestions((prev) => ({ ...prev, [`syrup-brand-${index}`]: [] }))
+                      }}
+                    />
+                    <AutocompleteInput
+                      value={row.syrupName}
+                      placeholder="Syrup Name"
+                      suggestions={suggestions[`syrup-name-${index}`] || []}
+                      onChange={(value) => {
+                        onSyrupChange(index, 'syrupName', value)
+                        fetchMedicineSuggestions('SYRUP', `syrup-name-${index}`, value, 'name')
+                      }}
+                      onSelect={(value) => {
+                        onSyrupChange(index, 'syrupName', value)
+                        setSuggestions((prev) => ({ ...prev, [`syrup-name-${index}`]: [] }))
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="rounded border px-2 py-2 text-sm"
+                      value={row.duration}
+                      onChange={(e) =>
+                        onSyrupChange(
+                          index,
+                          'duration',
+                          e.target.value === '' ? '' : Number(e.target.value)
+                        )
+                      }
+                      placeholder="Duration (days)"
+                    />
+                    <input
+                      type="number"
+                      className="rounded border px-2 py-2 text-sm"
+                      value={row.quantity}
+                      onChange={(e) =>
+                        onSyrupChange(
+                          index,
+                          'quantity',
+                          e.target.value === '' ? '' : Number(e.target.value)
+                        )
+                      }
+                      placeholder="Quantity (ml)"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.morning}
                         onChange={(e) => onSyrupChange(index, 'morning', e.target.checked)}
-                      />{' '}
-                      M
+                      />
+                      Morning
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.afternoon}
                         onChange={(e) => onSyrupChange(index, 'afternoon', e.target.checked)}
-                      />{' '}
-                      A
+                      />
+                      Afternoon
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.night}
                         onChange={(e) => onSyrupChange(index, 'night', e.target.checked)}
-                      />{' '}
-                      N
+                      />
+                      Night
                     </label>
                   </div>
                 </div>
@@ -742,57 +794,59 @@ function Dashboard() {
               onAdd={() => setInjections((prev) => [...prev, { ...emptyInjection }])}
               onRemove={(idx) => setInjections((prev) => prev.filter((_, i) => i !== idx))}
               renderItem={(row, index) => (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <AutocompleteInput
-                    value={row.brand}
-                    placeholder="Brand"
-                    suggestions={suggestions[`inj-brand-${index}`] || []}
-                    onChange={(value) => {
-                      onInjectionChange(index, 'brand', value)
-                      fetchMedicineSuggestions('INJECTION', `inj-brand-${index}`, value)
-                    }}
-                    onSelect={(item) => {
-                      onInjectionChange(index, 'brand', item.brand || '')
-                      onInjectionChange(index, 'medicineName', item.medicineName || '')
-                    }}
-                  />
-                  <AutocompleteInput
-                    value={row.medicineName}
-                    placeholder="Injection Name"
-                    suggestions={suggestions[`inj-name-${index}`] || []}
-                    onChange={(value) => {
-                      onInjectionChange(index, 'medicineName', value)
-                      fetchMedicineSuggestions('INJECTION', `inj-name-${index}`, value)
-                    }}
-                    onSelect={(item) => {
-                      onInjectionChange(index, 'brand', item.brand || '')
-                      onInjectionChange(index, 'medicineName', item.medicineName || '')
-                    }}
-                  />
-                  <div className="flex items-center gap-2 text-xs">
-                    <label>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <AutocompleteInput
+                      value={row.brand}
+                      placeholder="Injection Brand"
+                      suggestions={suggestions[`inj-brand-${index}`] || []}
+                      onChange={(value) => {
+                        onInjectionChange(index, 'brand', value)
+                        fetchMedicineSuggestions('INJECTION', `inj-brand-${index}`, value, 'brand')
+                      }}
+                      onSelect={(value) => {
+                        onInjectionChange(index, 'brand', value)
+                        setSuggestions((prev) => ({ ...prev, [`inj-brand-${index}`]: [] }))
+                      }}
+                    />
+                    <AutocompleteInput
+                      value={row.medicineName}
+                      placeholder="Injection Name"
+                      suggestions={suggestions[`inj-name-${index}`] || []}
+                      onChange={(value) => {
+                        onInjectionChange(index, 'medicineName', value)
+                        fetchMedicineSuggestions('INJECTION', `inj-name-${index}`, value, 'name')
+                      }}
+                      onSelect={(value) => {
+                        onInjectionChange(index, 'medicineName', value)
+                        setSuggestions((prev) => ({ ...prev, [`inj-name-${index}`]: [] }))
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.daily}
                         onChange={(e) => onInjectionChange(index, 'daily', e.target.checked)}
-                      />{' '}
+                      />
                       Daily
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.alternateDay}
                         onChange={(e) => onInjectionChange(index, 'alternateDay', e.target.checked)}
-                      />{' '}
-                      Alt
+                      />
+                      Alternate Day
                     </label>
-                    <label>
+                    <label className="inline-flex items-center gap-1">
                       <input
                         type="checkbox"
                         checked={row.weeklyOnce}
                         onChange={(e) => onInjectionChange(index, 'weeklyOnce', e.target.checked)}
-                      />{' '}
-                      Weekly
+                      />
+                      Weekly Once
                     </label>
                   </div>
                 </div>
@@ -836,24 +890,39 @@ function MedicineSection({ title, items, onAdd, onRemove, renderItem }) {
 }
 
 function AutocompleteInput({ value, onChange, onSelect, suggestions, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const normalizedValue = (value || '').trim().toLowerCase()
+  const filteredSuggestions = (suggestions || []).filter(
+    (item) => item && item.toLowerCase() !== normalizedValue
+  )
+
   return (
     <div className="relative">
       <input
         className="w-full rounded border px-2 py-2 text-sm"
         value={value}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setIsOpen(true)
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 120)}
       />
-      {suggestions.length > 0 && (
+      {isOpen && filteredSuggestions.length > 0 && (
         <div className="absolute z-20 mt-1 w-full rounded border bg-white shadow max-h-40 overflow-y-auto">
-          {suggestions.map((item) => (
+          {filteredSuggestions.map((item) => (
             <button
-              key={`${item.id}-${item.brand}-${item.medicineName}`}
+              key={`${placeholder}-${item}`}
               type="button"
-              onClick={() => onSelect(item)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onSelect(item)
+                setIsOpen(false)
+              }}
               className="w-full text-left px-2 py-1 text-xs hover:bg-slate-100 border-b last:border-b-0"
             >
-              {item.brand} - {item.medicineName}
+              {item}
             </button>
           ))}
         </div>

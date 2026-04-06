@@ -51,4 +51,38 @@ public interface MedicineRepository extends JpaRepository<Medicine, Long> {
             @Param("query") String query,
             @Param("type") MedicineType type,
             Pageable pageable);
+
+    @Query("""
+            SELECT DISTINCT m.brand
+            FROM Medicine m
+            WHERE (:type IS NULL OR m.type = :type)
+              AND LOWER(m.brand) LIKE LOWER(CONCAT('%', :query, '%'))
+            ORDER BY
+              CASE
+                WHEN LOWER(m.brand) LIKE LOWER(CONCAT(:query, '%')) THEN 0
+                ELSE 1
+              END,
+              m.brand ASC
+            """)
+    List<String> searchBrandSuggestions(
+            @Param("query") String query,
+            @Param("type") MedicineType type,
+            Pageable pageable);
+
+    @Query("""
+            SELECT DISTINCT m.medicineName
+            FROM Medicine m
+            WHERE (:type IS NULL OR m.type = :type)
+              AND LOWER(m.medicineName) LIKE LOWER(CONCAT('%', :query, '%'))
+            ORDER BY
+              CASE
+                WHEN LOWER(m.medicineName) LIKE LOWER(CONCAT(:query, '%')) THEN 0
+                ELSE 1
+              END,
+              m.medicineName ASC
+            """)
+    List<String> searchNameSuggestions(
+            @Param("query") String query,
+            @Param("type") MedicineType type,
+            Pageable pageable);
 }

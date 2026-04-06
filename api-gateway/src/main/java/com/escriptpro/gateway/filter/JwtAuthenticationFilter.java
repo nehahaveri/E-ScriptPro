@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -25,7 +26,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, GatewayFilter, Ord
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (shouldSkip(path)) {
+        if (shouldSkip(exchange.getRequest().getMethod(), path)) {
             return chain.filter(exchange);
         }
 
@@ -47,8 +48,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, GatewayFilter, Ord
         return Ordered.HIGHEST_PRECEDENCE;
     }
 
-    private boolean shouldSkip(String path) {
-        return "/health".equals(path)
+    private boolean shouldSkip(HttpMethod method, String path) {
+        return HttpMethod.OPTIONS.equals(method)
+                || "/health".equals(path)
                 || "/api/auth".equals(path)
                 || path.startsWith("/api/auth/");
     }

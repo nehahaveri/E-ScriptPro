@@ -17,8 +17,13 @@ function Login() {
     setLoading(true)
 
     try {
+      const cleanedIdentifier = identifier.trim()
+      const loginIdentifier = cleanedIdentifier.includes('@')
+        ? cleanedIdentifier.toLowerCase()
+        : cleanedIdentifier
+
       const response = await api.post('/auth/login', {
-        email: identifier.trim(),
+        email: loginIdentifier,
         password,
       })
       const token = response.data?.token
@@ -30,8 +35,8 @@ function Login() {
       if (rememberMe) {
         localStorage.setItem(
           'savedLoginPrefs',
-          JSON.stringify({
-            identifier: identifier.trim(),
+            JSON.stringify({
+            identifier: loginIdentifier,
             rememberMe: true,
           })
         )
@@ -42,7 +47,12 @@ function Login() {
       localStorage.setItem('token', token)
       window.location.href = '/dashboard'
     } catch (err) {
-      const message = err.response?.data?.message || 'Login failed. Please check credentials.'
+      const message =
+        err.response?.data?.message ||
+        (err.code === 'ERR_NETWORK'
+          ? 'Cannot reach backend. Check API Gateway on port 8081.'
+          : null) ||
+        'Login failed. Please check credentials.'
       setError(message)
     } finally {
       setLoading(false)

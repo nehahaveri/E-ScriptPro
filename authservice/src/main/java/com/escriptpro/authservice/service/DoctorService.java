@@ -41,29 +41,41 @@ public class DoctorService {
     }
 
     public AuthResponseDTO registerDoctor(SignupRequestDTO signupRequestDTO) {
-        if (authUserRepository.findByEmail(signupRequestDTO.getEmail()).isPresent()) {
+        if (signupRequestDTO.getEmail() == null || signupRequestDTO.getEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+        }
+        if (signupRequestDTO.getPassword() == null || signupRequestDTO.getPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
+        }
+
+        String normalizedEmail = signupRequestDTO.getEmail().trim().toLowerCase();
+        String normalizedPhone = signupRequestDTO.getPhone() == null ? null : signupRequestDTO.getPhone().trim();
+        String normalizedName = signupRequestDTO.getName() == null ? null : signupRequestDTO.getName().trim();
+
+        if (authUserRepository.findByEmail(normalizedEmail).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor with this email already exists");
         }
 
         AuthUser authUser = new AuthUser();
-        authUser.setEmail(signupRequestDTO.getEmail());
+        authUser.setEmail(normalizedEmail);
         authUser.setPassword(passwordEncoder.encode(signupRequestDTO.getPassword()));
         authUserRepository.save(authUser);
 
         try {
-            String serviceToken = jwtUtil.generateToken(signupRequestDTO.getEmail());
+            String serviceToken = jwtUtil.generateToken(normalizedEmail);
             doctorClient.createDoctorProfile(
-                    signupRequestDTO.getEmail(),
-                    signupRequestDTO.getName(),
-                    signupRequestDTO.getPhone(),
+                    normalizedEmail,
+                    normalizedName,
+                    normalizedPhone,
                     serviceToken
             );
         } catch (Exception e) {
             log.error("Doctor-service profile creation failed for email: {}. Signup will continue.",
-                    signupRequestDTO.getEmail(), e);
+                    normalizedEmail, e);
         }
 
-        return new AuthResponseDTO("Doctor registered successfully", null);
+        String token = jwtUtil.generateToken(normalizedEmail);
+        return new AuthResponseDTO("Doctor registered successfully", token);
     }
 
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {
@@ -71,10 +83,11 @@ public class DoctorService {
         if (emailOrPhone == null || emailOrPhone.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email or phone is required");
         }
+        String normalizedIdentifier = emailOrPhone.trim();
 
-        String resolvedEmail = emailOrPhone.contains("@")
-                ? emailOrPhone
-                : resolveEmailFromPhone(emailOrPhone);
+        String resolvedEmail = normalizedIdentifier.contains("@")
+                ? normalizedIdentifier.toLowerCase()
+                : resolveEmailFromPhone(normalizedIdentifier);
 
         AuthUser authUser = authUserRepository.findByEmail(resolvedEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctor not found"));

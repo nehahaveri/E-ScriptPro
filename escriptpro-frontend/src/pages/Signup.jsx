@@ -23,15 +23,38 @@ function Signup() {
     setLoading(true)
 
     try {
-      await api.post('/auth/signup', {
+      const signupResponse = await api.post('/auth/signup', {
         name: name.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
         password,
       })
-      window.location.href = '/'
+
+      // Prefer token returned by signup; fallback to login for compatibility.
+      let token = signupResponse.data?.token
+      if (!token) {
+        const loginResponse = await api.post('/auth/login', {
+          email: email.trim().toLowerCase(),
+          password,
+        })
+        token = loginResponse.data?.token
+      }
+      if (!token) {
+        setError('Signup completed, but auto-login failed. Please login manually.')
+        window.location.href = '/'
+        return
+      }
+
+      localStorage.setItem('token', token)
+      window.location.href = '/dashboard'
     } catch (err) {
-      const message = err.response?.data?.message || 'Signup failed. Please try again.'
+      const message =
+        err.response?.data?.message ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        (err.code === 'ERR_NETWORK'
+          ? 'Cannot reach backend. Check API Gateway on port 8081.'
+          : null) ||
+        'Signup failed. Please try again.'
       setError(message)
     } finally {
       setLoading(false)
