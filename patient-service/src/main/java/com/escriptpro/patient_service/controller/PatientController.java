@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -57,6 +58,15 @@ public class PatientController {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
         return patientService.getPatientByDoctorEmailAndPatientId(email, token, patientId);
+    }
+
+    @GetMapping("/search")
+    public List<Patient> searchPatients(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestParam String query) {
+        String token = extractBearerToken(authorizationHeader);
+        String email = jwtUtil.extractUsername(token);
+        return patientService.searchPatientsByDoctorEmail(email, token, query);
     }
 
     private String extractBearerToken(String authorizationHeader) {

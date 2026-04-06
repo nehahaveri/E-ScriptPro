@@ -12,6 +12,13 @@ public class PrescriptionRequestDTO {
 
     private Long patientId;
 
+    private String doctorName;
+    private String clinicName;
+    private String locality;
+    private String education;
+    private String logoUrl;
+    private String signatureUrl;
+
     private String diagnosis;
 
     private String advice;

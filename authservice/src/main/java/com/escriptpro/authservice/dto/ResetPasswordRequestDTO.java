@@ -7,10 +7,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SignupRequestDTO {
+public class ResetPasswordRequestDTO {
 
-    private String name;
-    private String email;
-    private String phone;
-    private String password;
+    private String token;
+    private String newPassword;
+    private String confirmPassword;
 }

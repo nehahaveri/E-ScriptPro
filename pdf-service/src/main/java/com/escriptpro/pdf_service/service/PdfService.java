@@ -7,12 +7,14 @@ import com.escriptpro.pdf_service.dto.TabletDTO;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Font;
+import com.lowagie.text.Image;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import java.io.ByteArrayOutputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -20,7 +22,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class PdfService {
 
-    private static final String DOCTOR_NAME = "Doctor Name: Dr. John Doe";
     private static final Font SECTION_FONT = new Font(Font.HELVETICA, 12, Font.BOLD);
 
     public byte[] generatePrescriptionPdf(PrescriptionRequestDTO request) {
@@ -32,7 +33,11 @@ public class PdfService {
             document.open();
 
             document.add(new Paragraph("E-ScriptPro"));
-            document.add(new Paragraph(DOCTOR_NAME));
+            document.add(new Paragraph("Doctor Name: " + safe(request.getDoctorName())));
+            document.add(new Paragraph("Clinic: " + safe(request.getClinicName())));
+            document.add(new Paragraph("Locality: " + safe(request.getLocality())));
+            document.add(new Paragraph("Education: " + safe(request.getEducation())));
+            addOptionalImage(document, request.getLogoUrl(), 120f, 50f, "Logo");
             document.add(new Paragraph(" "));
 
             document.add(new Paragraph("Patient ID: " + safe(request.getPatientId())));
@@ -77,6 +82,7 @@ public class PdfService {
 
             document.add(new Paragraph("Advice: " + safe(request.getAdvice())));
             document.add(new Paragraph("Consultation Fee: " + safe(request.getConsultationFee())));
+            addOptionalImage(document, request.getSignatureUrl(), 120f, 40f, "Signature");
 
         } catch (DocumentException e) {
             throw new RuntimeException("Failed to generate prescription PDF", e);
@@ -163,5 +169,20 @@ public class PdfService {
             return "weekly once";
         }
         return "-";
+    }
+
+    private void addOptionalImage(Document document, String imageUrl, float maxWidth, float maxHeight, String label)
+            throws DocumentException {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+        try {
+            Image image = Image.getInstance(new URL(imageUrl));
+            image.scaleToFit(maxWidth, maxHeight);
+            document.add(new Paragraph(label + ":"));
+            document.add(image);
+        } catch (Exception ex) {
+            document.add(new Paragraph(label + " URL: " + imageUrl));
+        }
     }
 }

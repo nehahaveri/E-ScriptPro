@@ -1,7 +1,10 @@
 package com.escriptpro.authservice.controller;
 
 import com.escriptpro.authservice.dto.AuthResponseDTO;
+import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
+import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
+import com.escriptpro.authservice.dto.ResetPasswordRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
 import com.escriptpro.authservice.service.DoctorService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,5 +30,16 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponseDTO login(@RequestBody LoginRequestDTO loginRequestDTO) {
         return doctorService.login(loginRequestDTO);
+    }
+
+    @PostMapping("/forgot-password")
+    public ForgotPasswordResponseDTO forgotPassword(
+            @RequestBody ForgotPasswordRequestDTO forgotPasswordRequestDTO) {
+        return doctorService.forgotPassword(forgotPasswordRequestDTO);
+    }
+
+    @PostMapping("/reset-password")
+    public AuthResponseDTO resetPassword(@RequestBody ResetPasswordRequestDTO resetPasswordRequestDTO) {
+        return doctorService.resetPassword(resetPasswordRequestDTO);
     }
 }

@@ -26,11 +26,20 @@ public class Doctor {
 
     private String name;
 
+    @Column(unique = true)
     private String phone;
 
     private String clinicName;
 
+    private String locality;
+
     private String specialization;
 
+    private String education;
+
     private Integer experience;
+
+    private String logoUrl;
+
+    private String signatureUrl;
 }

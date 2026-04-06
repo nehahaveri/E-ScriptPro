@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,4 +27,9 @@ public class AuthUser {
 
     @Column(nullable = false)
     private String password;
+
+    @Column(unique = true)
+    private String resetToken;
+
+    private LocalDateTime resetTokenExpiresAt;
 }

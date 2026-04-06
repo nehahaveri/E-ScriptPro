@@ -50,6 +50,15 @@ public class PatientService {
         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient not found");
     }
 
+    public List<Patient> searchPatientsByDoctorEmail(String email, String token, String query) {
+        Long doctorId = fetchDoctorIdByEmail(email, token);
+        String normalized = query == null ? "" : query.trim();
+        if (normalized.isEmpty()) {
+            return patientRepository.findByDoctorId(doctorId);
+        }
+        return patientRepository.searchByDoctorId(doctorId, normalized);
+    }
+
     private Long fetchDoctorIdByEmail(String email, String token) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);

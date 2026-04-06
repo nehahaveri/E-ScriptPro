@@ -58,7 +58,9 @@ public class PrescriptionService {
 
     public byte[] createPrescription(PrescriptionRequestDTO request, String email, String token) {
         Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
-        validatePatientOwnership(request.getPatientId(), token);
+        if (request.getPatientId() != null) {
+            validatePatientOwnership(request.getPatientId(), token);
+        }
 
         Prescription prescription = new Prescription();
         prescription.setDoctorId(doctorId);
