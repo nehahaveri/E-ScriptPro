@@ -32,6 +32,7 @@ public class SecurityConfig {
                                 "/health",
                                 "/auth/signup",
                                 "/auth/login",
+                                "/auth/verify-otp",
                                 "/auth/forgot-password",
                                 "/auth/reset-password"
                         ).permitAll()

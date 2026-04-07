@@ -35,4 +35,8 @@ public class Injection {
     private Boolean alternateDay;
 
     private Boolean weeklyOnce;
+
+    private String scheduleType;
+
+    private String weeklyDays;
 }

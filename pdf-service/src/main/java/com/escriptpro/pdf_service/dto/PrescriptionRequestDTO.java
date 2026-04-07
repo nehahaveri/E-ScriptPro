@@ -6,14 +6,32 @@ public class PrescriptionRequestDTO {
 
     private Long patientId;
     private String doctorName;
+    private String doctorEmail;
+    private String doctorPhone;
     private String clinicName;
+    private Boolean showDoctorName;
+    private Boolean showClinicName;
     private String locality;
     private String education;
     private String logoUrl;
     private String signatureUrl;
+    private String patientName;
+    private Integer patientAge;
+    private String patientGender;
+    private String visitDate;
+    private String complaints;
+    private String examination;
+    private String investigationAdvice;
     private String diagnosis;
+    private String bp;
+    private String sugar;
+    private String treatment;
+    private String followUp;
+    private String followUpDate;
+    private String xrayImageUrl;
     private String advice;
     private Integer consultationFee;
+    private Integer fee;
     private List<TabletDTO> tablets;
     private List<SyrupDTO> syrups;
     private List<InjectionDTO> injections;
@@ -34,12 +52,44 @@ public class PrescriptionRequestDTO {
         this.doctorName = doctorName;
     }
 
+    public String getDoctorEmail() {
+        return doctorEmail;
+    }
+
+    public void setDoctorEmail(String doctorEmail) {
+        this.doctorEmail = doctorEmail;
+    }
+
+    public String getDoctorPhone() {
+        return doctorPhone;
+    }
+
+    public void setDoctorPhone(String doctorPhone) {
+        this.doctorPhone = doctorPhone;
+    }
+
     public String getClinicName() {
         return clinicName;
     }
 
     public void setClinicName(String clinicName) {
         this.clinicName = clinicName;
+    }
+
+    public Boolean getShowDoctorName() {
+        return showDoctorName;
+    }
+
+    public void setShowDoctorName(Boolean showDoctorName) {
+        this.showDoctorName = showDoctorName;
+    }
+
+    public Boolean getShowClinicName() {
+        return showClinicName;
+    }
+
+    public void setShowClinicName(Boolean showClinicName) {
+        this.showClinicName = showClinicName;
     }
 
     public String getLocality() {
@@ -74,12 +124,116 @@ public class PrescriptionRequestDTO {
         this.signatureUrl = signatureUrl;
     }
 
+    public String getPatientName() {
+        return patientName;
+    }
+
+    public void setPatientName(String patientName) {
+        this.patientName = patientName;
+    }
+
+    public Integer getPatientAge() {
+        return patientAge;
+    }
+
+    public void setPatientAge(Integer patientAge) {
+        this.patientAge = patientAge;
+    }
+
+    public String getPatientGender() {
+        return patientGender;
+    }
+
+    public void setPatientGender(String patientGender) {
+        this.patientGender = patientGender;
+    }
+
+    public String getVisitDate() {
+        return visitDate;
+    }
+
+    public void setVisitDate(String visitDate) {
+        this.visitDate = visitDate;
+    }
+
     public String getDiagnosis() {
         return diagnosis;
     }
 
     public void setDiagnosis(String diagnosis) {
         this.diagnosis = diagnosis;
+    }
+
+    public String getComplaints() {
+        return complaints;
+    }
+
+    public void setComplaints(String complaints) {
+        this.complaints = complaints;
+    }
+
+    public String getExamination() {
+        return examination;
+    }
+
+    public void setExamination(String examination) {
+        this.examination = examination;
+    }
+
+    public String getInvestigationAdvice() {
+        return investigationAdvice;
+    }
+
+    public void setInvestigationAdvice(String investigationAdvice) {
+        this.investigationAdvice = investigationAdvice;
+    }
+
+    public String getBp() {
+        return bp;
+    }
+
+    public void setBp(String bp) {
+        this.bp = bp;
+    }
+
+    public String getSugar() {
+        return sugar;
+    }
+
+    public void setSugar(String sugar) {
+        this.sugar = sugar;
+    }
+
+    public String getTreatment() {
+        return treatment;
+    }
+
+    public void setTreatment(String treatment) {
+        this.treatment = treatment;
+    }
+
+    public String getFollowUp() {
+        return followUp;
+    }
+
+    public void setFollowUp(String followUp) {
+        this.followUp = followUp;
+    }
+
+    public String getFollowUpDate() {
+        return followUpDate;
+    }
+
+    public void setFollowUpDate(String followUpDate) {
+        this.followUpDate = followUpDate;
+    }
+
+    public String getXrayImageUrl() {
+        return xrayImageUrl;
+    }
+
+    public void setXrayImageUrl(String xrayImageUrl) {
+        this.xrayImageUrl = xrayImageUrl;
     }
 
     public String getAdvice() {
@@ -96,6 +250,14 @@ public class PrescriptionRequestDTO {
 
     public void setConsultationFee(Integer consultationFee) {
         this.consultationFee = consultationFee;
+    }
+
+    public Integer getFee() {
+        return fee;
+    }
+
+    public void setFee(Integer fee) {
+        this.fee = fee;
     }
 
     public List<TabletDTO> getTablets() {

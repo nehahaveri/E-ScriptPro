@@ -40,7 +40,7 @@ function ResetPassword() {
     <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
       <section className="w-full max-w-md rounded-xl bg-white p-6 shadow-sm border border-slate-200">
         <h1 className="text-2xl font-semibold text-slate-900">Reset Password</h1>
-        <p className="mt-1 text-sm text-slate-600">Use reset token to set new password.</p>
+        <p className="mt-1 text-sm text-slate-600">Use the reset token you received to set a new password.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
@@ -69,7 +69,7 @@ function ResetPassword() {
               onChange={(event) => setNewPassword(event.target.value)}
               required
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-              placeholder="Enter new password"
+              placeholder="Minimum 12 characters"
             />
           </div>
 

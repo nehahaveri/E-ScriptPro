@@ -1,8 +1,10 @@
 package com.escriptpro.doctor_service.service;
 
+import com.escriptpro.doctor_service.dto.DoctorRegistrationRequest;
 import com.escriptpro.doctor_service.dto.DoctorProfileUpdateDTO;
 import com.escriptpro.doctor_service.entity.Doctor;
 import com.escriptpro.doctor_service.repository.DoctorRepository;
+import com.escriptpro.doctor_service.validation.PhoneNumberValidator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +20,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class DoctorService {
 
+    private static final String DEFAULT_PHONE_REGION = "IN";
+
     private final DoctorRepository doctorRepository;
     private final Path uploadDir = Paths.get("uploads");
 
@@ -25,21 +29,27 @@ public class DoctorService {
         this.doctorRepository = doctorRepository;
     }
 
-    public Doctor createDoctor(Doctor doctor) {
-        if (doctorRepository.findByEmail(doctor.getEmail()).isPresent()) {
+    public Doctor createDoctor(DoctorRegistrationRequest request) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        String normalizedPhone = normalizePhone(request.getPhone());
+
+        if (doctorRepository.findByEmail(normalizedEmail).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Doctor already exists with email: " + doctor.getEmail()
+                    "Doctor already exists with this email"
             );
         }
-        if (doctor.getPhone() != null
-                && !doctor.getPhone().isBlank()
-                && doctorRepository.findByPhone(doctor.getPhone()).isPresent()) {
+        if (findDoctorByNormalizedPhone(normalizedPhone).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Doctor already exists with phone: " + doctor.getPhone()
+                    "Doctor already exists with this phone number"
             );
         }
+
+        Doctor doctor = new Doctor();
+        doctor.setEmail(normalizedEmail);
+        doctor.setName(request.getName().trim());
+        doctor.setPhone(normalizedPhone);
         return doctorRepository.save(doctor);
     }
 
@@ -52,35 +62,40 @@ public class DoctorService {
     }
 
     public Doctor getDoctorByPhone(String phone) {
-        return doctorRepository.findByPhone(phone)
+        String normalizedPhone = normalizePhone(phone);
+        return findDoctorByNormalizedPhone(normalizedPhone)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Doctor not found with phone: " + phone
+                        "Doctor not found"
                 ));
     }
 
     public Doctor updateDoctorByEmail(String email, DoctorProfileUpdateDTO request) {
         Doctor doctor = getDoctorByEmail(email);
+        String normalizedPhone = request.getPhone() == null || request.getPhone().isBlank()
+                ? null
+                : normalizePhone(request.getPhone());
 
-        if (request.getPhone() != null
-                && !request.getPhone().isBlank()
-                && !request.getPhone().equals(doctor.getPhone())
-                && doctorRepository.findByPhone(request.getPhone()).isPresent()) {
+        if (normalizedPhone != null
+                && !normalizedPhone.equals(doctor.getPhone())
+                && findDoctorByNormalizedPhone(normalizedPhone)
+                .filter(existingDoctor -> !existingDoctor.getId().equals(doctor.getId()))
+                .isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Doctor already exists with phone: " + request.getPhone()
+                    "Doctor already exists with this phone number"
             );
         }
 
-        doctor.setName(request.getName());
-        doctor.setPhone(request.getPhone());
-        doctor.setClinicName(request.getClinicName());
-        doctor.setLocality(request.getLocality());
-        doctor.setSpecialization(request.getSpecialization());
-        doctor.setEducation(request.getEducation());
+        doctor.setName(trimToNull(request.getName()));
+        doctor.setPhone(normalizedPhone);
+        doctor.setClinicName(trimToNull(request.getClinicName()));
+        doctor.setLocality(trimToNull(request.getLocality()));
+        doctor.setSpecialization(trimToNull(request.getSpecialization()));
+        doctor.setEducation(trimToNull(request.getEducation()));
         doctor.setExperience(request.getExperience());
-        doctor.setLogoUrl(request.getLogoUrl());
-        doctor.setSignatureUrl(request.getSignatureUrl());
+        doctor.setLogoUrl(trimToNull(request.getLogoUrl()));
+        doctor.setSignatureUrl(trimToNull(request.getSignatureUrl()));
         return doctorRepository.save(doctor);
     }
 
@@ -138,5 +153,44 @@ public class DoctorService {
             return ".png";
         }
         return ".jpg";
+    }
+
+    private String normalizePhone(String phone) {
+        try {
+            return PhoneNumberValidator.toE164(phone, DEFAULT_PHONE_REGION);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid phone number");
+        }
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private java.util.Optional<Doctor> findDoctorByNormalizedPhone(String normalizedPhone) {
+        java.util.Optional<Doctor> directMatch = doctorRepository.findByPhone(normalizedPhone);
+        if (directMatch.isPresent()) {
+            return directMatch;
+        }
+
+        return doctorRepository.findAll().stream()
+                .filter(doctor -> doctor.getPhone() != null && !doctor.getPhone().isBlank())
+                .filter(doctor -> normalizedPhone.equals(safeNormalizePhone(doctor.getPhone())))
+                .findFirst()
+                .map(doctor -> {
+                    if (!normalizedPhone.equals(doctor.getPhone())) {
+                        doctor.setPhone(normalizedPhone);
+                        return doctorRepository.save(doctor);
+                    }
+                    return doctor;
+                });
+    }
+
+    private String safeNormalizePhone(String phone) {
+        try {
+            return PhoneNumberValidator.toE164(phone, DEFAULT_PHONE_REGION);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

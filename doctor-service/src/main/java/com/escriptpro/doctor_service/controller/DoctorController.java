@@ -1,10 +1,12 @@
 package com.escriptpro.doctor_service.controller;
 
+import com.escriptpro.doctor_service.dto.DoctorRegistrationRequest;
 import com.escriptpro.doctor_service.dto.DoctorProfileUpdateDTO;
 import com.escriptpro.doctor_service.dto.FileUploadResponseDTO;
 import com.escriptpro.doctor_service.entity.Doctor;
 import com.escriptpro.doctor_service.service.DoctorService;
 import com.escriptpro.doctor_service.util.JwtUtil;
+import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,8 +40,8 @@ public class DoctorController {
     }
 
     @PostMapping
-    public Doctor createDoctor(@RequestBody Doctor doctor) {
-        return doctorService.createDoctor(doctor);
+    public Doctor createDoctor(@Valid @RequestBody DoctorRegistrationRequest request) {
+        return doctorService.createDoctor(request);
     }
 
     @GetMapping("/email/{email}")
@@ -62,7 +64,7 @@ public class DoctorController {
     @PutMapping("/me")
     public Doctor updateMyProfile(
             @RequestHeader("Authorization") String authorizationHeader,
-            @RequestBody DoctorProfileUpdateDTO request) {
+            @Valid @RequestBody DoctorProfileUpdateDTO request) {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
         return doctorService.updateDoctorByEmail(email, request);

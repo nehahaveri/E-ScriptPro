@@ -4,9 +4,12 @@ import com.escriptpro.authservice.dto.AuthResponseDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
+import com.escriptpro.authservice.dto.LoginResponseDTO;
 import com.escriptpro.authservice.dto.ResetPasswordRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
+import com.escriptpro.authservice.dto.VerifyOtpRequestDTO;
 import com.escriptpro.authservice.service.DoctorService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,23 +26,28 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public AuthResponseDTO signup(@RequestBody SignupRequestDTO signupRequestDTO) {
+    public AuthResponseDTO signup(@Valid @RequestBody SignupRequestDTO signupRequestDTO) {
         return doctorService.registerDoctor(signupRequestDTO);
     }
 
     @PostMapping("/login")
-    public AuthResponseDTO login(@RequestBody LoginRequestDTO loginRequestDTO) {
+    public LoginResponseDTO login(@Valid @RequestBody LoginRequestDTO loginRequestDTO) {
         return doctorService.login(loginRequestDTO);
+    }
+
+    @PostMapping("/verify-otp")
+    public LoginResponseDTO verifyOtp(@Valid @RequestBody VerifyOtpRequestDTO verifyOtpRequestDTO) {
+        return doctorService.verifyOtp(verifyOtpRequestDTO);
     }
 
     @PostMapping("/forgot-password")
     public ForgotPasswordResponseDTO forgotPassword(
-            @RequestBody ForgotPasswordRequestDTO forgotPasswordRequestDTO) {
+            @Valid @RequestBody ForgotPasswordRequestDTO forgotPasswordRequestDTO) {
         return doctorService.forgotPassword(forgotPasswordRequestDTO);
     }
 
     @PostMapping("/reset-password")
-    public AuthResponseDTO resetPassword(@RequestBody ResetPasswordRequestDTO resetPasswordRequestDTO) {
+    public AuthResponseDTO resetPassword(@Valid @RequestBody ResetPasswordRequestDTO resetPasswordRequestDTO) {
         return doctorService.resetPassword(resetPasswordRequestDTO);
     }
 }

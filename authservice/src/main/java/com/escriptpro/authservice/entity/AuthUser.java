@@ -28,8 +28,20 @@ public class AuthUser {
     @Column(nullable = false)
     private String password;
 
+    @Column
+    private String role = "DOCTOR";
+
     @Column(unique = true)
     private String resetToken;
 
     private LocalDateTime resetTokenExpiresAt;
+
+    @Column(unique = true)
+    private String mfaChallengeToken;
+
+    private String otpCodeHash;
+
+    private LocalDateTime otpExpiresAt;
+
+    private LocalDateTime mfaChallengeExpiresAt;
 }

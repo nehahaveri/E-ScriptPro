@@ -14,5 +14,7 @@ public class PatientResponseDTO {
     private Integer age;
     private String gender;
     private String mobile;
+    private String address;
+    private String notes;
     private Long doctorId;
 }

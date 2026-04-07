@@ -1,5 +1,6 @@
 package com.escriptpro.authservice.client;
 
+import com.escriptpro.authservice.dto.DoctorAuthProfileDTO;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.core.ParameterizedTypeReference;
@@ -52,5 +53,21 @@ public class DoctorClient {
             return null;
         }
         return String.valueOf(body.get("email"));
+    }
+
+    public DoctorAuthProfileDTO getDoctorProfileByEmail(String email, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+        ResponseEntity<DoctorAuthProfileDTO> response = restTemplate.exchange(
+                "http://localhost:8086/doctors/email/{email}",
+                HttpMethod.GET,
+                request,
+                DoctorAuthProfileDTO.class,
+                email
+        );
+
+        return response.getBody();
     }
 }

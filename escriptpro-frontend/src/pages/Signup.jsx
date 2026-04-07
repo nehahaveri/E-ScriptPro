@@ -34,7 +34,7 @@ function Signup() {
       let token = signupResponse.data?.token
       if (!token) {
         const loginResponse = await api.post('/auth/login', {
-          email: email.trim().toLowerCase(),
+          identifier: email.trim().toLowerCase(),
           password,
         })
         token = loginResponse.data?.token
@@ -65,7 +65,7 @@ function Signup() {
     <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
       <section className="w-full max-w-md rounded-xl bg-white p-6 shadow-sm border border-slate-200">
         <h1 className="text-2xl font-semibold text-slate-900">Doctor Signup</h1>
-        <p className="mt-1 text-sm text-slate-600">Create your account and profile.</p>
+        <p className="mt-1 text-sm text-slate-600">Create your account and profile. Phone defaults to India unless you include a country code.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
@@ -109,7 +109,7 @@ function Signup() {
               onChange={(event) => setPhone(event.target.value)}
               required
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-              placeholder="9876543210"
+              placeholder="9876543210 or +919876543210"
             />
           </div>
 
@@ -124,7 +124,7 @@ function Signup() {
               onChange={(event) => setPassword(event.target.value)}
               required
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-              placeholder="Enter password"
+              placeholder="Minimum 12 characters"
             />
           </div>
 

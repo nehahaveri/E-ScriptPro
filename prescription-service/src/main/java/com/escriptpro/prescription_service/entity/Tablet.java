@@ -38,6 +38,10 @@ public class Tablet {
 
     private Boolean night;
 
+    private String scheduleType;
+
+    private String weeklyDays;
+
     private Boolean withWater;
 
     private Boolean chew;

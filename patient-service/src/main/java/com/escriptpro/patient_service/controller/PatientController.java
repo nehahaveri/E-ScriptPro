@@ -4,6 +4,9 @@ import com.escriptpro.patient_service.dto.PatientRequest;
 import com.escriptpro.patient_service.entity.Patient;
 import com.escriptpro.patient_service.service.PatientService;
 import com.escriptpro.patient_service.util.JwtUtil;
+import jakarta.validation.Valid;
+import java.util.Map;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -31,17 +36,39 @@ public class PatientController {
 
     @PostMapping
     public Patient savePatient(@RequestHeader("Authorization") String authorizationHeader,
-                               @RequestBody PatientRequest patientRequest) {
+                               @Valid @RequestBody PatientRequest patientRequest) {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
 
         Patient patient = new Patient();
-        patient.setName(patientRequest.getName());
+        patient.setName(patientRequest.getName().trim());
         patient.setAge(patientRequest.getAge());
-        patient.setGender(patientRequest.getGender());
-        patient.setMobile(patientRequest.getMobile());
+        patient.setGender(patientRequest.getGender().trim());
+        patient.setMobile(patientRequest.getMobile().trim());
+        patient.setAddress(patientRequest.getAddress() == null ? null : patientRequest.getAddress().trim());
+        patient.setHeight(patientRequest.getHeight());
+        patient.setWeight(patientRequest.getWeight());
 
         return patientService.savePatient(patient, email, token);
+    }
+
+    @PutMapping("/{patientId}")
+    public Patient updatePatient(@RequestHeader("Authorization") String authorizationHeader,
+                                 @PathVariable Long patientId,
+                                 @Valid @RequestBody PatientRequest patientRequest) {
+        String token = extractBearerToken(authorizationHeader);
+        String email = jwtUtil.extractUsername(token);
+
+        Patient patient = new Patient();
+        patient.setName(patientRequest.getName().trim());
+        patient.setAge(patientRequest.getAge());
+        patient.setGender(patientRequest.getGender().trim());
+        patient.setMobile(patientRequest.getMobile().trim());
+        patient.setAddress(patientRequest.getAddress() == null ? null : patientRequest.getAddress().trim());
+        patient.setHeight(patientRequest.getHeight());
+        patient.setWeight(patientRequest.getWeight());
+
+        return patientService.updatePatient(email, token, patientId, patient);
     }
 
     @GetMapping
@@ -67,6 +94,16 @@ public class PatientController {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
         return patientService.searchPatientsByDoctorEmail(email, token, query);
+    }
+
+    @DeleteMapping("/{patientId}")
+    public ResponseEntity<Map<String, String>> deletePatient(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable Long patientId) {
+        String token = extractBearerToken(authorizationHeader);
+        String email = jwtUtil.extractUsername(token);
+        patientService.deletePatientByDoctorEmailAndPatientId(email, token, patientId);
+        return ResponseEntity.ok(Map.of("message", "Patient deleted successfully"));
     }
 
     private String extractBearerToken(String authorizationHeader) {
