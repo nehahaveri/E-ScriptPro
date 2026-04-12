@@ -21,7 +21,7 @@ public class DoctorClient {
         this.restTemplate = restTemplate;
     }
 
-    public void createDoctorProfile(String email, String name, String phone, String token) {
+    public DoctorAuthProfileDTO createDoctorProfile(String email, String name, String phone, String token) {
         Map<String, Object> body = new HashMap<>();
         body.put("email", email);
         body.put("name", name);
@@ -32,7 +32,7 @@ public class DoctorClient {
         headers.setBearerAuth(token);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        restTemplate.postForObject("http://localhost:8086/doctors", request, Object.class);
+        return restTemplate.postForObject("http://localhost:8086/doctors", request, DoctorAuthProfileDTO.class);
     }
 
     public String getDoctorEmailByPhone(String phone, String token) {
@@ -66,6 +66,38 @@ public class DoctorClient {
                 request,
                 DoctorAuthProfileDTO.class,
                 email
+        );
+
+        return response.getBody();
+    }
+
+    public DoctorAuthProfileDTO getDoctorProfileByPhone(String phone, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+        ResponseEntity<DoctorAuthProfileDTO> response = restTemplate.exchange(
+                "http://localhost:8086/doctors/phone/{phone}",
+                HttpMethod.GET,
+                request,
+                DoctorAuthProfileDTO.class,
+                phone
+        );
+
+        return response.getBody();
+    }
+
+    public DoctorAuthProfileDTO getDoctorProfileById(Long doctorId, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+        ResponseEntity<DoctorAuthProfileDTO> response = restTemplate.exchange(
+                "http://localhost:8086/doctors/{doctorId}",
+                HttpMethod.GET,
+                request,
+                DoctorAuthProfileDTO.class,
+                doctorId
         );
 
         return response.getBody();

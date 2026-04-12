@@ -10,11 +10,14 @@ import lombok.NoArgsConstructor;
 public class PatientResponseDTO {
 
     private Long id;
+    private Long patientNumber;
     private String name;
     private Integer age;
     private String gender;
     private String mobile;
     private String address;
-    private String notes;
+    private String appointmentDate;
+    private Integer height;
+    private Integer weight;
     private Long doctorId;
 }

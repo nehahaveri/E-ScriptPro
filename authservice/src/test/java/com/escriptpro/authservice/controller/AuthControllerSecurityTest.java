@@ -1,6 +1,5 @@
 package com.escriptpro.authservice.controller;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,15 +42,13 @@ class AuthControllerSecurityTest {
     private MockMvc mockMvc;
 
     @Test
-    void csrfEndpointIssuesTokenCookie() throws Exception {
+    void csrfEndpointIsNotExposedWhenCsrfIsDisabled() throws Exception {
         mockMvc.perform(get("/auth/csrf"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.headerName").isNotEmpty())
-                .andExpect(jsonPath("$.token").isNotEmpty());
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    void signupRequiresCsrfToken() throws Exception {
+    void signupSucceedsWithoutCsrfTokenWhenCsrfIsDisabled() throws Exception {
         mockMvc.perform(post("/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -62,13 +59,13 @@ class AuthControllerSecurityTest {
                                   "password": "StrongPassword12"
                                 }
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("jwt-token"));
     }
 
     @Test
-    void signupSucceedsWithCsrfToken() throws Exception {
+    void signupSucceedsWithCurrentSecurityConfiguration() throws Exception {
         mockMvc.perform(post("/auth/signup")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -91,6 +88,7 @@ class AuthControllerSecurityTest {
                     null,
                     null,
                     new JwtUtil("escriptpro-authservice-jwt-secret-key-for-development-only-2026-escriptpro-secure"),
+                    null,
                     null,
                     emailService(),
                     otpService(),

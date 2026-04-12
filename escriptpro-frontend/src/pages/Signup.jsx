@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { Apple, ArrowRight, BriefcaseMedical } from 'lucide-react'
 import api from '../services/api'
 
 function Signup() {
+  const navigate = useNavigate()
+  const [selectedRole, setSelectedRole] = useState('DOCTOR')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [doctorId, setDoctorId] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,6 +24,11 @@ function Signup() {
       return
     }
 
+    if (selectedRole === 'RECEPTIONIST' && !doctorId.trim()) {
+      setError('Assigned doctor ID is required for receptionist signup.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -28,25 +37,39 @@ function Signup() {
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         password,
+        role: selectedRole,
+        doctorId: selectedRole === 'RECEPTIONIST' ? Number(doctorId.trim()) : undefined,
       })
 
       // Prefer token returned by signup; fallback to login for compatibility.
       let token = signupResponse.data?.token
+      const resolvedRole = (signupResponse.data?.role || selectedRole).toUpperCase()
+      const resolvedDoctorId = signupResponse.data?.doctorId
       if (!token) {
         const loginResponse = await api.post('/auth/login', {
           identifier: email.trim().toLowerCase(),
           password,
         })
         token = loginResponse.data?.token
+        localStorage.setItem('role', (loginResponse.data?.role || resolvedRole).toUpperCase())
+        if (loginResponse.data?.doctorId !== null && loginResponse.data?.doctorId !== undefined) {
+          localStorage.setItem('doctorId', String(loginResponse.data.doctorId))
+        }
       }
       if (!token) {
         setError('Signup completed, but auto-login failed. Please login manually.')
-        window.location.href = '/'
+        navigate('/')
         return
       }
 
       localStorage.setItem('token', token)
-      window.location.href = '/dashboard'
+      localStorage.setItem('role', resolvedRole)
+      if (resolvedDoctorId !== null && resolvedDoctorId !== undefined) {
+        localStorage.setItem('doctorId', String(resolvedDoctorId))
+      } else {
+        localStorage.removeItem('doctorId')
+      }
+      navigate('/dashboard')
     } catch (err) {
       const message =
         err.response?.data?.message ||
@@ -62,108 +85,142 @@ function Signup() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-      <section className="w-full max-w-md rounded-xl bg-white p-6 shadow-sm border border-slate-200">
-        <h1 className="text-2xl font-semibold text-slate-900">Doctor Signup</h1>
-        <p className="mt-1 text-sm text-slate-600">Create your account and profile. Phone defaults to India unless you include a country code.</p>
+    <main className="auth-shell">
+      <section className="auth-card">
+        <div className="auth-header-row">
+          <p className="auth-kicker">New Practice</p>
+          <span className="auth-icon-badge">
+            <BriefcaseMedical className="h-5 w-5" />
+          </span>
+        </div>
+        <h1 className="auth-title">{selectedRole === 'RECEPTIONIST' ? 'Receptionist Signup' : 'Doctor Signup'}</h1>
+        <p className="auth-copy">
+          {selectedRole === 'RECEPTIONIST'
+            ? 'Create a receptionist account linked to the doctor you work with.'
+            : 'Create your doctor account.'}
+        </p>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <button type="button" className="button-secondary auth-apple-button w-full justify-between">
+          <span className="inline-flex items-center gap-3">
+            <Apple className="h-5 w-5" />
+            Sign up with Apple
+          </span>
+          <ArrowRight className="h-4 w-4" />
+        </button>
+
+        <form onSubmit={handleSubmit} className="auth-form">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="name">
-              Name
-            </label>
+            <label className="field-label">Sign Up As</label>
+            <div className="grid grid-cols-2 gap-2">
+              {['DOCTOR', 'RECEPTIONIST'].map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setSelectedRole(role)}
+                  className={`rounded-full border px-4 py-3 text-sm font-medium transition ${
+                    selectedRole === role
+                      ? 'border-white/45 bg-white/22 text-white'
+                      : 'border-white/15 bg-white/8 text-white/70 hover:bg-white/14'
+                  }`}
+                >
+                  {role === 'DOCTOR' ? 'Doctor' : 'Receptionist'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <input
               id="name"
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-              placeholder="Dr. Name"
+              className="input-luxe"
+              placeholder={selectedRole === 'RECEPTIONIST' ? 'Receptionist name' : 'Dr. Name'}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">
-              Email
-            </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-              placeholder="doctor@example.com"
+              className="input-luxe"
+              placeholder={selectedRole === 'RECEPTIONIST' ? 'receptionist@example.com' : 'doctor@example.com'}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="phone">
-              Phone Number
-            </label>
             <input
               id="phone"
               type="tel"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="input-luxe"
               placeholder="9876543210 or +919876543210"
             />
           </div>
 
+          {selectedRole === 'RECEPTIONIST' && (
+            <div>
+              <label className="field-label" htmlFor="doctorId">
+                Assigned Doctor ID
+              </label>
+              <input
+                id="doctorId"
+                type="number"
+                min="1"
+                value={doctorId}
+                onChange={(event) => setDoctorId(event.target.value)}
+                required
+                className="input-luxe"
+                placeholder="Enter doctor ID"
+              />
+            </div>
+          )}
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
-              Password
-            </label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="input-luxe"
               placeholder="Minimum 12 characters"
             />
           </div>
 
           <div>
-            <label
-              className="mb-1 block text-sm font-medium text-slate-700"
-              htmlFor="confirmPassword"
-            >
-              Confirm Password
-            </label>
             <input
               id="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="input-luxe"
               placeholder="Re-enter password"
             />
           </div>
 
-          {error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-200">
-              {error}
-            </p>
-          )}
+          {error && <p className="alert-error">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+            className="button-primary w-full"
           >
-            {loading ? 'Creating account...' : 'Sign up'}
+            {loading ? 'Creating account...' : selectedRole === 'RECEPTIONIST' ? 'Create receptionist account' : 'Sign up'}
           </button>
         </form>
 
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-5 text-sm text-white/72">
           Already have an account?{' '}
-          <Link to="/" className="font-medium text-slate-900 underline">
+          <Link to="/" className="font-medium text-white underline underline-offset-4">
             Login
           </Link>
         </p>

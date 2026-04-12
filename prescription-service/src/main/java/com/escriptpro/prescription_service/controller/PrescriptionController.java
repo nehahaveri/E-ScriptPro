@@ -1,6 +1,7 @@
 package com.escriptpro.prescription_service.controller;
 
 import com.escriptpro.prescription_service.dto.FileUploadResponseDTO;
+import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
 import com.escriptpro.prescription_service.entity.Prescription;
 import java.io.IOException;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -63,6 +65,17 @@ public class PrescriptionController {
         String email = jwtUtil.extractUsername(token);
         List<Prescription> history = prescriptionService.getPrescriptionHistory(patientId, email, token);
         return ResponseEntity.ok(history);
+    }
+
+    @GetMapping("/follow-ups")
+    public ResponseEntity<List<FollowUpAppointmentDTO>> getFollowUpsByDate(
+            @RequestParam("date") String date,
+            HttpServletRequest httpRequest) {
+        String authorizationHeader = httpRequest.getHeader("Authorization");
+        String token = extractBearerToken(authorizationHeader);
+        String email = jwtUtil.extractUsername(token);
+        List<FollowUpAppointmentDTO> appointments = prescriptionService.getFollowUpsByDate(date, email, token);
+        return ResponseEntity.ok(appointments);
     }
 
     @GetMapping("/{prescriptionId}/pdf")

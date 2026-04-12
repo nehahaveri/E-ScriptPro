@@ -1,16 +1,19 @@
 package com.escriptpro.authservice.service;
 
 import com.escriptpro.authservice.client.DoctorClient;
+import com.escriptpro.authservice.client.ReceptionistClient;
 import com.escriptpro.authservice.dto.AuthResponseDTO;
 import com.escriptpro.authservice.dto.DoctorAuthProfileDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginResponseDTO;
+import com.escriptpro.authservice.dto.ReceptionistProfileDTO;
 import com.escriptpro.authservice.dto.ResetPasswordRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
 import com.escriptpro.authservice.dto.VerifyOtpRequestDTO;
 import com.escriptpro.authservice.entity.AuthUser;
+import com.escriptpro.authservice.entity.Role;
 import com.escriptpro.authservice.mfa.MfaProperties;
 import com.escriptpro.authservice.repository.AuthUserRepository;
 import com.escriptpro.authservice.validation.PhoneNumberValidator;
@@ -23,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -36,6 +40,7 @@ public class DoctorService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final DoctorClient doctorClient;
+    private final ReceptionistClient receptionistClient;
     private final EmailService emailService;
     private final OtpService otpService;
     private final MfaProperties mfaProperties;
@@ -45,6 +50,7 @@ public class DoctorService {
             PasswordEncoder passwordEncoder,
             JwtUtil jwtUtil,
             DoctorClient doctorClient,
+            ReceptionistClient receptionistClient,
             EmailService emailService,
             OtpService otpService,
             MfaProperties mfaProperties) {
@@ -52,6 +58,7 @@ public class DoctorService {
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.doctorClient = doctorClient;
+        this.receptionistClient = receptionistClient;
         this.emailService = emailService;
         this.otpService = otpService;
         this.mfaProperties = mfaProperties;
@@ -59,27 +66,80 @@ public class DoctorService {
 
     @Transactional
     public AuthResponseDTO registerDoctor(SignupRequestDTO signupRequestDTO) {
-        String normalizedEmail = signupRequestDTO.getEmail().trim().toLowerCase();
-        String normalizedPhone = normalizePhone(signupRequestDTO.getPhone());
-        String normalizedName = signupRequestDTO.getName() == null ? null : signupRequestDTO.getName().trim();
+        String normalizedEmail = requireValue(signupRequestDTO.getEmail(), "Email is required").toLowerCase();
+        String rawPassword = requireValue(signupRequestDTO.getPassword(), "Password is required");
+        Role requestedRole = resolveRequestedRole(signupRequestDTO);
 
         if (authUserRepository.findByEmail(normalizedEmail).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor with this email already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account with this email already exists");
         }
 
         AuthUser authUser = new AuthUser();
         authUser.setEmail(normalizedEmail);
-        authUser.setPassword(passwordEncoder.encode(signupRequestDTO.getPassword()));
-        authUser.setRole("DOCTOR");
+        authUser.setPassword(passwordEncoder.encode(rawPassword));
+        authUser.setRole(requestedRole);
+
+        if (requestedRole == Role.RECEPTIONIST) {
+            Long assignedDoctorId = signupRequestDTO.getDoctorId();
+            if (assignedDoctorId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Doctor ID is required for receptionist signup");
+            }
+
+            DoctorAuthProfileDTO doctorProfile = validateDoctorExists(assignedDoctorId, normalizedEmail);
+            String normalizedPhone = normalizePhone(requireValue(signupRequestDTO.getPhone(), "Phone number is required"));
+            String normalizedName = requireValue(signupRequestDTO.getName(), "Name is required");
+            authUser.setDoctorId(doctorProfile.getId());
+            authUserRepository.save(authUser);
+
+            try {
+                receptionistClient.createReceptionistProfile(
+                        normalizedName,
+                        normalizedEmail,
+                        normalizedPhone,
+                        doctorProfile.getId()
+                );
+            } catch (HttpStatusCodeException e) {
+                log.error("Receptionist-service profile creation failed for email: {}.",
+                        normalizedEmail, e);
+                throw new ResponseStatusException(
+                        HttpStatus.valueOf(e.getStatusCode().value()),
+                        extractDownstreamMessage(e.getResponseBodyAsString(), "Account creation failed. Please try again.")
+                );
+            } catch (Exception e) {
+                log.error("Receptionist-service profile creation failed for email: {}. Rolling back signup.",
+                        normalizedEmail, e);
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Account creation failed. Please try again."
+                );
+            }
+
+            String token = jwtUtil.generateToken(authUser.getEmail(), authUser.getDoctorId(), effectiveRole(authUser));
+            return new AuthResponseDTO("Receptionist registered successfully", token, authUser.getDoctorId(), effectiveRole(authUser));
+        }
+
+        String normalizedPhone = normalizePhone(requireValue(signupRequestDTO.getPhone(), "Phone number is required"));
+        String normalizedName = requireValue(signupRequestDTO.getName(), "Name is required");
+
         authUserRepository.save(authUser);
 
+        DoctorAuthProfileDTO doctorProfile;
         try {
             String serviceToken = jwtUtil.generateServiceToken(normalizedEmail);
-            doctorClient.createDoctorProfile(
+            doctorProfile = doctorClient.createDoctorProfile(
                     normalizedEmail,
                     normalizedName,
                     normalizedPhone,
                     serviceToken
+            );
+            authUser.setDoctorId(doctorProfile.getId());
+            authUserRepository.save(authUser);
+        } catch (HttpStatusCodeException e) {
+            log.error("Doctor-service profile creation failed for email: {}.",
+                    normalizedEmail, e);
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(e.getStatusCode().value()),
+                    extractDownstreamMessage(e.getResponseBodyAsString(), "Account creation failed. Please try again.")
             );
         } catch (Exception e) {
             log.error("Doctor-service profile creation failed for email: {}. Rolling back signup.",
@@ -90,8 +150,7 @@ public class DoctorService {
             );
         }
 
-        DoctorAuthProfileDTO doctorProfile = getDoctorProfile(normalizedEmail);
-        String token = issueAccessToken(authUser, doctorProfile);
+        String token = issueAccessToken(authUser, doctorProfile.getId());
         return new AuthResponseDTO("Doctor registered successfully", token, doctorProfile.getId(), effectiveRole(authUser));
     }
 
@@ -102,10 +161,8 @@ public class DoctorService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email or phone is required");
         }
         String normalizedIdentifier = emailOrPhone.trim();
-
-        String resolvedEmail = normalizedIdentifier.contains("@")
-                ? normalizedIdentifier.toLowerCase()
-                : resolveEmailFromPhone(normalizedIdentifier);
+        ResolvedLoginContext loginContext = resolveLoginContext(normalizedIdentifier);
+        String resolvedEmail = loginContext.email();
 
         AuthUser authUser = authUserRepository.findByEmail(resolvedEmail)
                 .orElseThrow(this::invalidCredentials);
@@ -114,19 +171,21 @@ public class DoctorService {
             throw invalidCredentials();
         }
 
-        DoctorAuthProfileDTO doctorProfile = getDoctorProfile(authUser.getEmail());
+        Long resolvedDoctorId = resolveDoctorIdForLogin(authUser, loginContext);
+
         if (!isMfaEnforced()) {
-            String token = issueAccessToken(authUser, doctorProfile);
-            return new LoginResponseDTO("Login successful", false, null, token, doctorProfile.getId(), effectiveRole(authUser));
+            String token = issueAccessToken(authUser, resolvedDoctorId);
+            return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
         }
 
-        if (doctorProfile.getPhone() == null || doctorProfile.getPhone().isBlank()) {
+        String mfaPhone = resolveMfaPhone(authUser, loginContext);
+        if (mfaPhone == null || mfaPhone.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "MFA is not configured for this account");
         }
 
         authUser.setMfaChallengeToken(UUID.randomUUID().toString());
         authUser.setMfaChallengeExpiresAt(LocalDateTime.now().plusMinutes(10));
-        otpService.issueOtp(authUser, doctorProfile.getPhone());
+        otpService.issueOtp(authUser, mfaPhone);
         authUserRepository.save(authUser);
 
         return new LoginResponseDTO(
@@ -148,9 +207,7 @@ public class DoctorService {
 
         String resolvedEmail;
         try {
-            resolvedEmail = identifier.contains("@")
-                    ? identifier.trim().toLowerCase()
-                    : resolveEmailFromPhone(identifier);
+            resolvedEmail = resolveLoginContext(identifier.trim()).email();
         } catch (ResponseStatusException ex) {
             return new ForgotPasswordResponseDTO(
                     "If the account exists, a reset link has been sent."
@@ -219,8 +276,8 @@ public class DoctorService {
             throw invalidCredentials();
         }
 
-        DoctorAuthProfileDTO doctorProfile = getDoctorProfile(authUser.getEmail());
-        String token = issueAccessToken(authUser, doctorProfile);
+        Long resolvedDoctorId = resolveDoctorIdForVerifiedUser(authUser);
+        String token = issueAccessToken(authUser, resolvedDoctorId);
         otpService.clearOtp(authUser);
         authUserRepository.save(authUser);
 
@@ -229,20 +286,48 @@ public class DoctorService {
                 false,
                 null,
                 token,
-                doctorProfile.getId(),
+                resolvedDoctorId,
                 effectiveRole(authUser)
         );
     }
 
-    private String resolveEmailFromPhone(String phone) {
+    private ResolvedLoginContext resolveLoginContext(String identifier) {
+        if (identifier.contains("@")) {
+            String normalizedEmail = identifier.toLowerCase();
+            AuthUser authUser = authUserRepository.findByEmail(normalizedEmail)
+                    .orElseThrow(this::invalidCredentials);
+            return buildLoginContext(authUser, normalizedEmail);
+        }
+
+        String normalizedPhone = normalizePhone(identifier);
+
+        ReceptionistProfileDTO receptionistProfile = getReceptionistProfileByPhone(normalizedPhone);
+        if (receptionistProfile != null && receptionistProfile.getEmail() != null && !receptionistProfile.getEmail().isBlank()) {
+            return new ResolvedLoginContext(
+                    receptionistProfile.getEmail().toLowerCase(),
+                    Role.RECEPTIONIST,
+                    receptionistProfile.getDoctorId(),
+                    receptionistProfile.getPhone()
+            );
+        }
+
+        DoctorAuthProfileDTO doctorProfile = resolveDoctorProfileFromPhone(normalizedPhone);
+        return new ResolvedLoginContext(
+                doctorProfile.getEmail().toLowerCase(),
+                Role.DOCTOR,
+                doctorProfile.getId(),
+                doctorProfile.getPhone()
+        );
+    }
+
+    private DoctorAuthProfileDTO resolveDoctorProfileFromPhone(String phone) {
         try {
-            String normalizedPhone = normalizePhone(phone);
-            String serviceToken = jwtUtil.generateServiceToken(normalizedPhone);
-            String email = doctorClient.getDoctorEmailByPhone(normalizedPhone, serviceToken);
-            if (email == null || email.isBlank()) {
+            String serviceToken = jwtUtil.generateServiceToken(phone);
+            DoctorAuthProfileDTO doctorProfile = doctorClient.getDoctorProfileByPhone(phone, serviceToken);
+            if (doctorProfile == null || doctorProfile.getEmail() == null || doctorProfile.getEmail().isBlank()) {
                 throw invalidCredentials();
             }
-            return email;
+            return doctorProfile;
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -277,15 +362,96 @@ public class DoctorService {
         }
     }
 
-    private String issueAccessToken(AuthUser authUser, DoctorAuthProfileDTO doctorProfile) {
-        return jwtUtil.generateToken(authUser.getEmail(), doctorProfile.getId(), effectiveRole(authUser));
+    private ReceptionistProfileDTO getReceptionistProfileByEmail(String email) {
+        try {
+            ReceptionistProfileDTO receptionistProfile = receptionistClient.getReceptionistByEmail(email);
+            if (receptionistProfile == null || receptionistProfile.getDoctorId() == null) {
+                throw invalidCredentials();
+            }
+            return receptionistProfile;
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw invalidCredentials();
+        }
+    }
+
+    private ReceptionistProfileDTO getReceptionistProfileByPhone(String phone) {
+        try {
+            ReceptionistProfileDTO receptionistProfile = receptionistClient.getReceptionistByPhone(phone);
+            if (receptionistProfile == null || receptionistProfile.getDoctorId() == null) {
+                return null;
+            }
+            return receptionistProfile;
+        } catch (ResponseStatusException ex) {
+            if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                return null;
+            }
+            throw ex;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private ResolvedLoginContext buildLoginContext(AuthUser authUser, String normalizedEmail) {
+        Role role = authUser.getRole() == null ? Role.DOCTOR : authUser.getRole();
+        if (role == Role.RECEPTIONIST) {
+            ReceptionistProfileDTO receptionistProfile = getReceptionistProfileByEmail(normalizedEmail);
+            return new ResolvedLoginContext(
+                    normalizedEmail,
+                    Role.RECEPTIONIST,
+                    receptionistProfile.getDoctorId(),
+                    receptionistProfile.getPhone()
+            );
+        }
+
+        DoctorAuthProfileDTO doctorProfile = getDoctorProfile(normalizedEmail);
+        return new ResolvedLoginContext(
+                normalizedEmail,
+                Role.DOCTOR,
+                doctorProfile.getId(),
+                doctorProfile.getPhone()
+        );
+    }
+
+    private Long resolveDoctorIdForLogin(AuthUser authUser, ResolvedLoginContext loginContext) {
+        if (loginContext.doctorId() != null) {
+            return loginContext.doctorId();
+        }
+        return authUser.getDoctorId();
+    }
+
+    private String resolveMfaPhone(AuthUser authUser, ResolvedLoginContext loginContext) {
+        if (loginContext.phone() != null && !loginContext.phone().isBlank()) {
+            return loginContext.phone();
+        }
+        if ((authUser.getRole() == null ? Role.DOCTOR : authUser.getRole()) == Role.RECEPTIONIST) {
+            ReceptionistProfileDTO receptionistProfile = getReceptionistProfileByEmail(authUser.getEmail());
+            return receptionistProfile.getPhone();
+        }
+        return getDoctorProfile(authUser.getEmail()).getPhone();
+    }
+
+    private Long resolveDoctorIdForVerifiedUser(AuthUser authUser) {
+        Role role = authUser.getRole() == null ? Role.DOCTOR : authUser.getRole();
+        if (role == Role.RECEPTIONIST) {
+            ReceptionistProfileDTO receptionistProfile = getReceptionistProfileByEmail(authUser.getEmail());
+            return receptionistProfile.getDoctorId();
+        }
+        DoctorAuthProfileDTO doctorProfile = getDoctorProfile(authUser.getEmail());
+        return doctorProfile.getId();
+    }
+
+    private String issueAccessToken(AuthUser authUser, Long resolvedDoctorId) {
+        Long doctorId = resolvedDoctorId != null ? resolvedDoctorId : authUser.getDoctorId();
+        return jwtUtil.generateToken(authUser.getEmail(), doctorId, effectiveRole(authUser));
     }
 
     private String effectiveRole(AuthUser authUser) {
-        if (authUser.getRole() == null || authUser.getRole().isBlank()) {
-            authUser.setRole("DOCTOR");
+        if (authUser.getRole() == null) {
+            authUser.setRole(Role.DOCTOR);
         }
-        return authUser.getRole();
+        return authUser.getRole().name();
     }
 
     private boolean isMfaEnforced() {
@@ -294,5 +460,52 @@ public class DoctorService {
                 && provider != null
                 && !provider.isBlank()
                 && !"noop".equalsIgnoreCase(provider.trim());
+    }
+
+    private Role resolveRequestedRole(SignupRequestDTO signupRequestDTO) {
+        return signupRequestDTO.getRole() == null ? Role.DOCTOR : signupRequestDTO.getRole();
+    }
+
+    private String requireValue(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+        }
+        return value.trim();
+    }
+
+    private String extractDownstreamMessage(String responseBody, String fallback) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return fallback;
+        }
+
+        int messageIndex = responseBody.indexOf("\"message\"");
+        if (messageIndex < 0) {
+            return fallback;
+        }
+        int colonIndex = responseBody.indexOf(':', messageIndex);
+        int startQuote = responseBody.indexOf('"', colonIndex + 1);
+        int endQuote = responseBody.indexOf('"', startQuote + 1);
+        if (colonIndex < 0 || startQuote < 0 || endQuote < 0) {
+            return fallback;
+        }
+        return responseBody.substring(startQuote + 1, endQuote);
+    }
+
+    private DoctorAuthProfileDTO validateDoctorExists(Long doctorId, String normalizedEmail) {
+        try {
+            String serviceToken = jwtUtil.generateServiceToken(normalizedEmail);
+            DoctorAuthProfileDTO doctorProfile = doctorClient.getDoctorProfileById(doctorId, serviceToken);
+            if (doctorProfile == null || doctorProfile.getId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned doctor does not exist");
+            }
+            return doctorProfile;
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned doctor does not exist");
+        }
+    }
+
+    private record ResolvedLoginContext(String email, Role role, Long doctorId, String phone) {
     }
 }

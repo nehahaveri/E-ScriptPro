@@ -455,6 +455,13 @@ public class PdfService {
         if (Boolean.TRUE.equals(syrup.getNight())) {
             notes.add("Night");
         }
+        if (syrup.getIntakeValue() != null) {
+            if ("QUANTITY_PER_INTAKE".equalsIgnoreCase(syrup.getIntakeType())) {
+                notes.add(syrup.getIntakeValue() + " ml per intake");
+            } else {
+                notes.add(syrup.getIntakeValue() + " teaspoon");
+            }
+        }
         appendWeeklyDays(notes, syrup.getScheduleType(), syrup.getWeeklyDays());
         return notes.isEmpty() ? "-" : String.join(", ", notes);
     }

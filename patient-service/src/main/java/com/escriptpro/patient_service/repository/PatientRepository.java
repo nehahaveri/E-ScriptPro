@@ -21,6 +21,8 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     Optional<Patient> findTopByDoctorIdOrderByPatientNumberDesc(Long doctorId);
 
+    List<Patient> findByDoctorIdAndAppointmentDateOrderByPatientNumberAsc(Long doctorId, String appointmentDate);
+
     @Query("""
             SELECT p
             FROM Patient p

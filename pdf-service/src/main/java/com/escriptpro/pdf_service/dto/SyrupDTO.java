@@ -11,6 +11,8 @@ public class SyrupDTO {
     private Boolean night;
     private String scheduleType;
     private List<String> weeklyDays;
+    private String intakeType;
+    private Integer intakeValue;
     private Integer duration;
     private Integer quantity;
 
@@ -76,6 +78,22 @@ public class SyrupDTO {
 
     public void setWeeklyDays(List<String> weeklyDays) {
         this.weeklyDays = weeklyDays;
+    }
+
+    public String getIntakeType() {
+        return intakeType;
+    }
+
+    public void setIntakeType(String intakeType) {
+        this.intakeType = intakeType;
+    }
+
+    public Integer getIntakeValue() {
+        return intakeValue;
+    }
+
+    public void setIntakeValue(Integer intakeValue) {
+        this.intakeValue = intakeValue;
     }
 
     public Integer getQuantity() {

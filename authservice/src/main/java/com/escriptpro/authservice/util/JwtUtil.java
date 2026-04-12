@@ -26,14 +26,18 @@ public class JwtUtil {
     }
 
     public String generateToken(String email, Long doctorId, String role) {
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(email)
-                .claim("doctorId", doctorId)
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(key, SIGNATURE_ALGORITHM)
-                .compact();
+                .signWith(key, SIGNATURE_ALGORITHM);
+
+        if (doctorId != null) {
+            builder.claim("doctorId", doctorId);
+        }
+
+        return builder.compact();
     }
 
     public String generateServiceToken(String subject) {

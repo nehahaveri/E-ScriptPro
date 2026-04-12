@@ -54,6 +54,11 @@ public class DoctorController {
         return doctorService.getDoctorByPhone(phone);
     }
 
+    @GetMapping("/{doctorId}")
+    public Doctor getDoctorById(@PathVariable Long doctorId) {
+        return doctorService.getDoctorById(doctorId);
+    }
+
     @GetMapping("/me")
     public Doctor getMyProfile(@RequestHeader("Authorization") String authorizationHeader) {
         String token = extractBearerToken(authorizationHeader);

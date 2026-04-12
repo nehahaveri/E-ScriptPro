@@ -40,6 +40,10 @@ public class Syrup {
 
     private String weeklyDays;
 
+    private String intakeType;
+
+    private Integer intakeValue;
+
     private Integer duration;
 
     private Integer quantity;

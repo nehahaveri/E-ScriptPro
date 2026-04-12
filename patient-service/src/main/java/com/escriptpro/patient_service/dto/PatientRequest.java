@@ -32,6 +32,28 @@ public class PatientRequest {
     @Size(max = 255, message = "Address must be at most 255 characters")
     private String address;
 
+    @Pattern(
+            regexp = "^$|^\\d{4}-\\d{2}-\\d{2}$",
+            message = "Appointment date must be in YYYY-MM-DD format"
+    )
+    private String appointmentDate;
+
+    @Pattern(
+            regexp = "^$|^([01]\\d|2[0-3]):[0-5]\\d$",
+            message = "Appointment time must be in HH:MM format"
+    )
+    private String appointmentTime;
+
+    @Pattern(
+            regexp = "^$|^(BOOKED|CONFIRMED|COMPLETED|CANCELLED|NO_SHOW)$",
+            message = "Appointment status must be one of BOOKED, CONFIRMED, COMPLETED, CANCELLED, or NO_SHOW"
+    )
+    private String appointmentStatus;
+
+    @Min(value = 0, message = "Appointment reminder must be at least 0 minutes")
+    @Max(value = 10080, message = "Appointment reminder must be at most 10080 minutes")
+    private Integer appointmentReminderMinutes;
+
     @Min(value = 0, message = "Height must be at least 0")
     @Max(value = 300, message = "Height must be at most 300 cm")
     private Integer height;

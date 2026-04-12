@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { CalendarDays, Clock3 } from 'lucide-react'
 import api from '../services/api'
 
 const createPatientForm = (patient) => ({
@@ -7,21 +8,80 @@ const createPatientForm = (patient) => ({
   mobile: patient?.mobile || '',
   age: patient?.age ?? '',
   gender: patient?.gender || 'MALE',
-  address: patient?.address || '',
+  appointmentDate: patient?.appointmentDate || '',
+  appointmentTime: patient?.appointmentTime || '',
+  appointmentStatus: patient?.appointmentStatus || '',
+  appointmentReminderMinutes:
+    patient?.appointmentReminderMinutes === null || patient?.appointmentReminderMinutes === undefined
+      ? ''
+      : String(patient.appointmentReminderMinutes),
   height: patient?.height ?? '',
   weight: patient?.weight ?? '',
 })
 
 const resolvePatientNumber = (patient, fallback) => patient?.patientNumber ?? fallback
 
+const isIsoDateOnly = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+
+const formatDisplayDate = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  if (isIsoDateOnly(value)) {
+    const [year, month, day] = value.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+const formatDisplayTime = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  const [hours, minutes] = value.split(':').map(Number)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return value
+  }
+
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+const formatAppointmentLabel = (date, time) => [formatDisplayDate(date), formatDisplayTime(time)].filter(Boolean).join(' | ')
+const GOOGLE_PENDING_PATIENT_KEY = 'googleCalendarPendingPatientId'
+const GOOGLE_PENDING_ROUTE_KEY = 'googleCalendarPendingRoute'
+
 function PatientProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [patient, setPatient] = useState(null)
   const [patientForm, setPatientForm] = useState(createPatientForm(null))
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [appointmentFocused, setAppointmentFocused] = useState(false)
+  const appointmentInputRef = useRef(null)
+  const [appointmentTimeFocused, setAppointmentTimeFocused] = useState(false)
+  const appointmentTimeInputRef = useRef(null)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [deletePatientText, setDeletePatientText] = useState('')
@@ -36,6 +96,56 @@ function PatientProfile() {
     }
     loadProfile()
   }, [id])
+
+  useEffect(() => {
+    const googleCalendarState = searchParams.get('googleCalendar')
+    if (!googleCalendarState) {
+      return
+    }
+
+    const pendingPatientId = sessionStorage.getItem(GOOGLE_PENDING_PATIENT_KEY)
+
+    const finalizeCallback = () => {
+      sessionStorage.removeItem(GOOGLE_PENDING_PATIENT_KEY)
+      sessionStorage.removeItem(GOOGLE_PENDING_ROUTE_KEY)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('googleCalendar')
+      const nextQuery = nextParams.toString()
+      navigate(nextQuery ? `/patients/${id}?${nextQuery}` : `/patients/${id}`, { replace: true })
+    }
+
+    if (googleCalendarState !== 'connected') {
+      setError(
+        googleCalendarState === 'denied'
+          ? 'Google Calendar connection was cancelled.'
+          : 'Google Calendar connection failed.'
+      )
+      finalizeCallback()
+      return
+    }
+
+    if (!pendingPatientId || pendingPatientId !== String(id)) {
+      setSuccessMessage('Google Calendar connected successfully.')
+      finalizeCallback()
+      return
+    }
+
+    const syncPendingPatient = async () => {
+      try {
+        const response = await api.post(`/calendar/google/sync/patients/${id}`)
+        setSuccessMessage('Appointment synced to Google Calendar.')
+        if (response.data?.htmlLink) {
+          window.open(response.data.htmlLink, '_blank', 'noopener,noreferrer')
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to sync appointment to Google Calendar.')
+      } finally {
+        finalizeCallback()
+      }
+    }
+
+    syncPendingPatient()
+  }, [searchParams, navigate, id])
 
   const sortedHistory = useMemo(
     () =>
@@ -76,7 +186,13 @@ function PatientProfile() {
         age: patientForm.age === '' ? null : Number(patientForm.age),
         gender: patientForm.gender,
         mobile: patientForm.mobile.trim(),
-        address: patientForm.address.trim(),
+        appointmentDate: patientForm.appointmentDate || null,
+        appointmentTime: patientForm.appointmentTime || null,
+        appointmentStatus: patientForm.appointmentDate ? patientForm.appointmentStatus : null,
+        appointmentReminderMinutes:
+          patientForm.appointmentDate && patientForm.appointmentReminderMinutes !== ''
+            ? Number(patientForm.appointmentReminderMinutes)
+            : null,
         height: patientForm.height === '' ? null : Number(patientForm.height),
         weight: patientForm.weight === '' ? null : Number(patientForm.weight),
       }
@@ -107,6 +223,57 @@ function PatientProfile() {
       window.URL.revokeObjectURL(url)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to download prescription PDF.')
+    }
+  }
+
+  const downloadCalendarInvite = async () => {
+    try {
+      const response = await api.get(`/patients/${id}/calendar.ics`, {
+        responseType: 'blob',
+      })
+      const blob = new Blob([response.data], { type: 'text/calendar;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `appointment-${id}.ics`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to download calendar invite.')
+    }
+  }
+
+  const connectAndSyncGoogleCalendar = async () => {
+    if (!patient?.appointmentDate) {
+      setError('Add an appointment date before syncing with Google Calendar.')
+      return
+    }
+
+    try {
+      const statusResponse = await api.get('/calendar/google/status')
+      if (statusResponse.data?.connected) {
+        const response = await api.post(`/calendar/google/sync/patients/${id}`)
+        setSuccessMessage('Appointment synced to Google Calendar.')
+        if (response.data?.htmlLink) {
+          window.open(response.data.htmlLink, '_blank', 'noopener,noreferrer')
+        }
+        return
+      }
+
+      sessionStorage.setItem(GOOGLE_PENDING_PATIENT_KEY, String(id))
+      sessionStorage.setItem(GOOGLE_PENDING_ROUTE_KEY, window.location.href)
+      const connectResponse = await api.get('/calendar/google/connect', {
+        params: { redirectUri: window.location.href },
+      })
+      const authorizationUrl = connectResponse.data?.authorizationUrl
+      if (!authorizationUrl) {
+        throw new Error('Missing Google authorization URL.')
+      }
+      window.location.href = authorizationUrl
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to start Google Calendar sync.')
     }
   }
 
@@ -141,64 +308,99 @@ function PatientProfile() {
     }
   }
 
+  const openDatePicker = () => {
+    const input = appointmentInputRef.current
+    if (!input) {
+      return
+    }
+    input.focus()
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+    }
+  }
+
+  const openTimePicker = () => {
+    const input = appointmentTimeInputRef.current
+    if (!input) {
+      return
+    }
+    input.type = 'time'
+    input.focus()
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+    }
+  }
+
   if (loading) {
-    return <main className="min-h-screen bg-slate-100 p-6">Loading patient profile...</main>
+    return <main className="app-shell flex items-center justify-center text-slate-600">Loading patient profile...</main>
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.16),_transparent_24%),linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] p-4 md:p-6">
+    <main className="app-shell relative overflow-hidden">
+      <span className="liquid-orb left-[-4rem] top-20 h-40 w-40 bg-[radial-gradient(circle,_rgba(122,229,214,0.42),_rgba(122,229,214,0))]" />
+      <span className="liquid-orb right-[-5rem] top-32 h-48 w-48 bg-[radial-gradient(circle,_rgba(86,145,255,0.42),_rgba(86,145,255,0))]" />
       <section className="mx-auto max-w-6xl space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/70 bg-white/85 px-5 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+        <div className="glass-panel section-chroma flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-700">Patient Record</p>
-            <h1 className="text-2xl font-semibold text-slate-900">Patient Profile</h1>
-            <p className="text-sm text-slate-600">Patient ID: {resolvePatientNumber(patient, '-')}</p>
+            <p className="glass-kicker">Patient Record</p>
+            <h1 className="glass-heading text-3xl">Patient Profile</h1>
+            <p className="glass-copy text-sm">Patient ID: {resolvePatientNumber(patient, '-')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => navigate(`/dashboard?patientId=${id}`)}
-              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
+              onClick={() => navigate(`/dashboard?service=prescriptions&patientId=${id}`)}
+              className="button-glass-secondary min-h-0 px-4 py-2"
             >
               Use In Prescription
             </button>
+            {patient?.appointmentDate && (
+              <>
+                <button
+                  type="button"
+                  onClick={connectAndSyncGoogleCalendar}
+                  className="button-glass-secondary min-h-0 px-4 py-2"
+                >
+                  Google Calendar
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCalendarInvite}
+                  className="button-glass-secondary min-h-0 px-4 py-2"
+                >
+                  iPhone Calendar (.ics)
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => setDeletePatientOpen(true)}
-              className="rounded-full border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700"
+              className="button-glass-danger min-h-0 px-4 py-2"
             >
               Delete Patient
             </button>
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm text-white"
+              className="button-glass min-h-0 px-4 py-2"
             >
               Back to Dashboard
             </button>
           </div>
         </div>
 
-        {error && (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
+        {error && <p className="alert-error">{error}</p>}
 
-        {successMessage && (
-          <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {successMessage}
-          </p>
-        )}
+        {successMessage && <p className="alert-success">{successMessage}</p>}
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[360px,1fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.05)] space-y-4">
+          <section className="panel-card space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Editable Details</p>
-              <h2 className="text-lg font-semibold text-slate-900">Patient Information</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Editable Details</p>
+              <h2 className="text-2xl text-slate-900">Patient Information</h2>
             </div>
 
-            <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4">
+            <div className="glass-well section-chroma-soft p-4">
               <p className="text-lg font-semibold text-slate-900">{patient?.name}</p>
               <p className="mt-1 text-sm text-slate-600">
                 {patient?.gender} • {patient?.age ?? '-'} years • {patient?.mobile}
@@ -210,12 +412,25 @@ function PatientProfile() {
                   {patient?.weight ? `Weight ${patient.weight} kg` : null}
                 </p>
               )}
+              {patient?.appointmentDate && (
+                <p className="mt-2 text-sm text-slate-600">
+                  Appointment: {formatAppointmentLabel(patient.appointmentDate, patient.appointmentTime)}
+                </p>
+              )}
+              {(patient?.appointmentStatus || patient?.appointmentReminderMinutes != null) && (
+                <p className="mt-2 text-sm text-slate-600">
+                  Status: {patient.appointmentStatus || 'BOOKED'}
+                  {patient.appointmentReminderMinutes != null
+                    ? ` • Reminder ${patient.appointmentReminderMinutes} minute(s) before`
+                    : ''}
+                </p>
+              )}
             </div>
 
             <form onSubmit={savePatient} className="space-y-3">
               <input
                 required
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="surface-input"
                 placeholder="Patient name"
                 value={patientForm.name}
                 onChange={(event) => setPatientForm((prev) => ({ ...prev, name: event.target.value }))}
@@ -224,13 +439,13 @@ function PatientProfile() {
                 <input
                   required
                   type="number"
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="surface-input"
                   placeholder="Age"
                   value={patientForm.age}
                   onChange={(event) => setPatientForm((prev) => ({ ...prev, age: event.target.value }))}
                 />
                 <select
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="surface-input"
                   value={patientForm.gender}
                   onChange={(event) => setPatientForm((prev) => ({ ...prev, gender: event.target.value }))}
                 >
@@ -241,28 +456,93 @@ function PatientProfile() {
               </div>
               <input
                 required
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="surface-input"
                 placeholder="Mobile number"
                 value={patientForm.mobile}
                 onChange={(event) => setPatientForm((prev) => ({ ...prev, mobile: event.target.value }))}
               />
-              <input
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                placeholder="Address"
-                value={patientForm.address}
-                onChange={(event) => setPatientForm((prev) => ({ ...prev, address: event.target.value }))}
-              />
+              <label className="date-input-shell relative block">
+                {!patientForm.appointmentDate && !appointmentFocused && (
+                  <span className="date-input-overlay pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400">
+                    Appointment Date
+                  </span>
+                )}
+                <input
+                  ref={appointmentInputRef}
+                  type="date"
+                  className={`surface-input w-full pr-12 ${!patientForm.appointmentDate ? 'date-input-empty' : ''}`}
+                  aria-label="Appointment Date"
+                  value={patientForm.appointmentDate}
+                  onFocus={() => setAppointmentFocused(true)}
+                  onBlur={() => setAppointmentFocused(false)}
+                  onChange={(event) => setPatientForm((prev) => ({ ...prev, appointmentDate: event.target.value }))}
+                />
+                <button
+                  type="button"
+                  aria-label="Open appointment date calendar"
+                  onClick={openDatePicker}
+                  className="absolute right-3 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/70 text-[#3A7BD5] shadow-[0_8px_20px_rgba(58,123,213,0.14)] transition hover:bg-white"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                </button>
+              </label>
+              <label className="date-input-shell relative block">
+                <input
+                  ref={appointmentTimeInputRef}
+                  type={appointmentTimeFocused || patientForm.appointmentTime ? 'time' : 'text'}
+                  className="surface-input w-full pr-14"
+                  aria-label="Appointment Time"
+                  placeholder="Appointment Time"
+                  value={patientForm.appointmentTime}
+                  onFocus={() => setAppointmentTimeFocused(true)}
+                  onBlur={() => setAppointmentTimeFocused(false)}
+                  onChange={(event) => setPatientForm((prev) => ({ ...prev, appointmentTime: event.target.value }))}
+                />
+                <button
+                  type="button"
+                  aria-label="Open appointment time picker"
+                  onClick={openTimePicker}
+                  className="absolute right-3 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/70 text-[#3A7BD5] shadow-[0_8px_20px_rgba(58,123,213,0.14)] transition hover:bg-white"
+                >
+                  <Clock3 className="h-4 w-4" />
+                </button>
+              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <select
+                  className="surface-input"
+                  value={patientForm.appointmentStatus}
+                  onChange={(event) => setPatientForm((prev) => ({ ...prev, appointmentStatus: event.target.value }))}
+                >
+                  <option value="">Appointment Status</option>
+                  <option value="BOOKED">BOOKED</option>
+                  <option value="CONFIRMED">CONFIRMED</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                  <option value="NO_SHOW">NO_SHOW</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max="10080"
+                  className="surface-input"
+                  placeholder="Appointment Reminder (mins)"
+                  value={patientForm.appointmentReminderMinutes}
+                  onChange={(event) =>
+                    setPatientForm((prev) => ({ ...prev, appointmentReminderMinutes: event.target.value }))
+                  }
+                />
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="number"
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="surface-input"
                   placeholder="Height (cm)"
                   value={patientForm.height}
                   onChange={(event) => setPatientForm((prev) => ({ ...prev, height: event.target.value }))}
                 />
                 <input
                   type="number"
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="surface-input"
                   placeholder="Weight (kg)"
                   value={patientForm.weight}
                   onChange={(event) => setPatientForm((prev) => ({ ...prev, weight: event.target.value }))}
@@ -271,33 +551,33 @@ function PatientProfile() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                className="surface-button-primary w-full"
               >
                 {saving ? 'Saving...' : 'Save Patient Changes'}
               </button>
             </form>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.05)] space-y-4">
+          <section className="panel-card space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Medical Timeline</p>
-                <h2 className="text-lg font-semibold text-slate-900">Prescription History</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Medical Timeline</p>
+                <h2 className="text-2xl text-slate-900">Prescription History</h2>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-500">
+              <span className="glass-pill text-sm text-slate-500">
                 {sortedHistory.length} record(s)
               </span>
             </div>
 
             {sortedHistory.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+              <p className="glass-well border border-dashed border-slate-300/70 px-4 py-6 text-sm text-slate-500">
                 No prescriptions found for this patient.
               </p>
             )}
 
             <div className="space-y-3">
               {sortedHistory.map((item) => (
-                <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                <article key={item.id} className="glass-well section-chroma-soft space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
@@ -309,14 +589,14 @@ function PatientProfile() {
                       <button
                         type="button"
                         onClick={() => downloadPdf(item.id)}
-                        className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700"
+                        className="button-glass-secondary min-h-0 px-3 py-2 text-xs"
                       >
                         Download PDF
                       </button>
                       <button
                         type="button"
                         onClick={() => setDeletePrescriptionId(item.id)}
-                        className="rounded-full border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700"
+                        className="button-glass-danger min-h-0 px-3 py-2 text-xs"
                       >
                         Delete
                       </button>
@@ -349,7 +629,7 @@ function PatientProfile() {
                       <img
                         src={item.xrayImageUrl}
                         alt="Patient x-ray"
-                        className="max-h-72 w-full rounded-2xl border border-slate-200 object-contain bg-white"
+                        className="max-h-72 w-full rounded-[22px] border border-white/60 object-contain bg-white/75"
                       />
                     </div>
                   )}
@@ -373,7 +653,7 @@ function PatientProfile() {
         onConfirm={deletePatient}
       >
         <input
-          className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          className="glass-input"
           placeholder="Type patient name to confirm"
           value={deletePatientText}
           onChange={(event) => setDeletePatientText(event.target.value)}
@@ -407,8 +687,8 @@ function ConfirmModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-md p-4">
+      <div className="glass-panel w-full max-w-md p-5">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <p className="mt-2 text-sm text-slate-600">{description}</p>
         {children && <div className="mt-4">{children}</div>}
@@ -416,7 +696,7 @@ function ConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700"
+            className="button-glass-secondary min-h-0 rounded-lg px-4 py-2 text-sm"
           >
             Cancel
           </button>
@@ -424,7 +704,7 @@ function ConfirmModal({
             type="button"
             disabled={confirmDisabled}
             onClick={onConfirm}
-            className="rounded bg-red-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-red-300"
+            className="button-glass-danger min-h-0 rounded-lg px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             {confirmLabel}
           </button>
@@ -440,7 +720,7 @@ function HistoryField({ label, value }) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+    <div className="glass-well px-3 py-3">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{value}</p>
     </div>

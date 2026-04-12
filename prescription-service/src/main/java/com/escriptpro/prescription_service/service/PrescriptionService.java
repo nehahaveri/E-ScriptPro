@@ -4,6 +4,7 @@ import com.escriptpro.prescription_service.client.DoctorClient;
 import com.escriptpro.prescription_service.client.MedicineClient;
 import com.escriptpro.prescription_service.client.PatientClient;
 import com.escriptpro.prescription_service.client.PdfClient;
+import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
 import com.escriptpro.prescription_service.dto.InjectionDTO;
 import com.escriptpro.prescription_service.dto.PatientResponseDTO;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
@@ -23,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -150,6 +152,8 @@ public class PrescriptionService {
                 syrup.setNight(syrupDTO.getNight());
                 syrup.setScheduleType(resolveMedicineScheduleType(syrupDTO.getScheduleType(), syrupDTO.getWeeklyDays()));
                 syrup.setWeeklyDays(joinWeeklyDays(syrupDTO.getWeeklyDays()));
+                syrup.setIntakeType(syrupDTO.getIntakeType());
+                syrup.setIntakeValue(syrupDTO.getIntakeValue());
                 syrup.setDuration(syrupDTO.getDuration());
                 syrup.setQuantity(syrupDTO.getQuantity());
                 syrupRepository.save(syrup);
@@ -182,6 +186,37 @@ public class PrescriptionService {
         Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
         validatePatientOwnership(patientId, token);
         return prescriptionRepository.findByDoctorIdAndPatientIdOrderByVisitDateDescCreatedAtDesc(doctorId, patientId);
+    }
+
+    public List<FollowUpAppointmentDTO> getFollowUpsByDate(String followUpDate, String email, String token) {
+        Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
+        List<Prescription> prescriptions = prescriptionRepository
+                .findByDoctorIdAndFollowUpDateOrderByCreatedAtAsc(doctorId, followUpDate);
+
+        Map<Long, FollowUpAppointmentDTO> appointmentsByPatient = new LinkedHashMap<>();
+        for (Prescription prescription : prescriptions) {
+            if (prescription.getPatientId() == null) {
+                continue;
+            }
+
+            PatientResponseDTO patient = validatePatientOwnership(prescription.getPatientId(), token);
+            appointmentsByPatient.put(
+                    patient.getId(),
+                    new FollowUpAppointmentDTO(
+                            prescription.getId(),
+                            patient.getId(),
+                            patient.getPatientNumber(),
+                            patient.getName(),
+                            patient.getMobile(),
+                            patient.getAge(),
+                            patient.getGender(),
+                            prescription.getFollowUpDate(),
+                            prescription.getDiagnosis()
+                    )
+            );
+        }
+
+        return new ArrayList<>(appointmentsByPatient.values());
     }
 
     @Transactional
@@ -343,6 +378,8 @@ public class PrescriptionService {
                         syrup.getNight(),
                         resolveMedicineScheduleType(syrup.getScheduleType(), splitWeeklyDays(syrup.getWeeklyDays())),
                         splitWeeklyDays(syrup.getWeeklyDays()),
+                        syrup.getIntakeType(),
+                        syrup.getIntakeValue(),
                         syrup.getDuration(),
                         syrup.getQuantity()
                 )

@@ -70,6 +70,14 @@ public class DoctorService {
                 ));
     }
 
+    public Doctor getDoctorById(Long doctorId) {
+        return doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Doctor not found"
+                ));
+    }
+
     public Doctor updateDoctorByEmail(String email, DoctorProfileUpdateDTO request) {
         Doctor doctor = getDoctorByEmail(email);
         String normalizedPhone = request.getPhone() == null || request.getPhone().isBlank()
