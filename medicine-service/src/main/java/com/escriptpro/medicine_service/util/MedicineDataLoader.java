@@ -4,15 +4,15 @@ import com.escriptpro.medicine_service.entity.Medicine;
 import com.escriptpro.medicine_service.entity.MedicineType;
 import com.escriptpro.medicine_service.repository.MedicineRepository;
 import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -33,55 +33,37 @@ public class MedicineDataLoader implements CommandLineRunner {
         if (medicineRepository.count() > 0) {
             return;
         }
-
         loadData();
     }
 
     public void loadData() throws IOException {
-        Path cleanDataPath = resolveCleanDataPath();
-        
-        // Skip if clean data file doesn't exist
-        if (!Files.exists(cleanDataPath)) {
+        ClassPathResource resource = new ClassPathResource(CLEAN_DATA_FILE);
+        if (!resource.exists()) {
             return;
         }
 
-        try (BufferedReader reader = Files.newBufferedReader(cleanDataPath, StandardCharsets.UTF_8)) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
             String line = reader.readLine();
             if (line == null) {
-                throw new IOException("Cleaned CSV is empty: " + cleanDataPath);
+                throw new IOException("Cleaned CSV is empty");
             }
 
+            List<Medicine> batch = new ArrayList<>();
             while ((line = reader.readLine()) != null) {
-                if (line.isBlank()) {
-                    continue;
-                }
+                if (line.isBlank()) continue;
 
                 List<String> columns = parseCsvLine(line);
-                if (columns.size() < 3) {
-                    continue;
-                }
+                if (columns.size() < 3) continue;
 
                 Medicine medicine = new Medicine();
                 medicine.setBrand(columns.get(0).trim());
                 medicine.setMedicineName(columns.get(1).trim());
                 medicine.setType(MedicineType.valueOf(columns.get(2).trim()));
-                medicineRepository.save(medicine);
+                batch.add(medicine);
             }
+            medicineRepository.saveAll(batch);
         }
-    }
-
-    private Path resolveCleanDataPath() {
-        Path directPath = Path.of("src/main/resources", CLEAN_DATA_FILE);
-        if (Files.exists(directPath)) {
-            return directPath;
-        }
-
-        Path modulePath = Path.of("medicine-service", "src", "main", "resources", CLEAN_DATA_FILE);
-        if (Files.exists(modulePath)) {
-            return modulePath;
-        }
-
-        return directPath;
     }
 
     private List<String> parseCsvLine(String line) {
