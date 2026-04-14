@@ -1,6 +1,7 @@
 package com.escriptpro.prescription_service.client;
 
 import com.escriptpro.prescription_service.dto.PatientResponseDTO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -15,9 +16,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class PatientClient {
 
     private final RestTemplate restTemplate;
+    private final String patientServiceUrl;
 
-    public PatientClient(RestTemplate restTemplate) {
+    public PatientClient(RestTemplate restTemplate, @Value("${services.patient-service.url}") String patientServiceUrl) {
         this.restTemplate = restTemplate;
+        this.patientServiceUrl = patientServiceUrl;
     }
 
     public PatientResponseDTO getPatientById(Long patientId, String token) {
@@ -27,7 +30,7 @@ public class PatientClient {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         try {
             ResponseEntity<PatientResponseDTO> response = restTemplate.exchange(
-                    "http://localhost:8082/patients/{patientId}",
+                    patientServiceUrl + "/patients/{patientId}",
                     HttpMethod.GET,
                     entity,
                     PatientResponseDTO.class,

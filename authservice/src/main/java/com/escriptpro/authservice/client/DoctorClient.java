@@ -3,6 +3,7 @@ package com.escriptpro.authservice.client;
 import com.escriptpro.authservice.dto.DoctorAuthProfileDTO;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -16,9 +17,11 @@ import org.springframework.web.client.RestTemplate;
 public class DoctorClient {
 
     private final RestTemplate restTemplate;
+    private final String doctorServiceUrl;
 
-    public DoctorClient(RestTemplate restTemplate) {
+    public DoctorClient(RestTemplate restTemplate, @Value("${services.doctor-service.url}") String doctorServiceUrl) {
         this.restTemplate = restTemplate;
+        this.doctorServiceUrl = doctorServiceUrl;
     }
 
     public DoctorAuthProfileDTO createDoctorProfile(String email, String name, String phone, String token) {
@@ -32,7 +35,7 @@ public class DoctorClient {
         headers.setBearerAuth(token);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        return restTemplate.postForObject("http://localhost:8086/doctors", request, DoctorAuthProfileDTO.class);
+        return restTemplate.postForObject(doctorServiceUrl + "/doctors", request, DoctorAuthProfileDTO.class);
     }
 
     public String getDoctorEmailByPhone(String phone, String token) {
@@ -41,7 +44,7 @@ public class DoctorClient {
 
         HttpEntity<Void> request = new HttpEntity<>(headers);
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/phone/{phone}",
+                doctorServiceUrl + "/doctors/phone/{phone}",
                 HttpMethod.GET,
                 request,
                 new ParameterizedTypeReference<>() {},
@@ -61,7 +64,7 @@ public class DoctorClient {
 
         HttpEntity<Void> request = new HttpEntity<>(headers);
         ResponseEntity<DoctorAuthProfileDTO> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/email/{email}",
+                doctorServiceUrl + "/doctors/email/{email}",
                 HttpMethod.GET,
                 request,
                 DoctorAuthProfileDTO.class,
@@ -77,7 +80,7 @@ public class DoctorClient {
 
         HttpEntity<Void> request = new HttpEntity<>(headers);
         ResponseEntity<DoctorAuthProfileDTO> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/phone/{phone}",
+                doctorServiceUrl + "/doctors/phone/{phone}",
                 HttpMethod.GET,
                 request,
                 DoctorAuthProfileDTO.class,
@@ -93,7 +96,7 @@ public class DoctorClient {
 
         HttpEntity<Void> request = new HttpEntity<>(headers);
         ResponseEntity<DoctorAuthProfileDTO> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/{doctorId}",
+                doctorServiceUrl + "/doctors/{doctorId}",
                 HttpMethod.GET,
                 request,
                 DoctorAuthProfileDTO.class,

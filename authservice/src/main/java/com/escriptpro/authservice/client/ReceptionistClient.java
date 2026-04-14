@@ -3,6 +3,7 @@ package com.escriptpro.authservice.client;
 import com.escriptpro.authservice.dto.ReceptionistProfileDTO;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -16,9 +17,11 @@ import org.springframework.web.client.RestTemplate;
 public class ReceptionistClient {
 
     private final RestTemplate restTemplate;
+    private final String receptionistServiceUrl;
 
-    public ReceptionistClient(RestTemplate restTemplate) {
+    public ReceptionistClient(RestTemplate restTemplate, @Value("${services.receptionist-service.url}") String receptionistServiceUrl) {
         this.restTemplate = restTemplate;
+        this.receptionistServiceUrl = receptionistServiceUrl;
     }
 
     public ReceptionistProfileDTO createReceptionistProfile(String name, String email, String phone, Long doctorId) {
@@ -32,12 +35,12 @@ public class ReceptionistClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        return restTemplate.postForObject("http://localhost:8087/receptionists", request, ReceptionistProfileDTO.class);
+        return restTemplate.postForObject(receptionistServiceUrl + "/receptionists", request, ReceptionistProfileDTO.class);
     }
 
     public ReceptionistProfileDTO getReceptionistByEmail(String email) {
         ResponseEntity<ReceptionistProfileDTO> response = restTemplate.exchange(
-                "http://localhost:8087/receptionists/email/{email}",
+                receptionistServiceUrl + "/receptionists/email/{email}",
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
                 ReceptionistProfileDTO.class,
@@ -48,7 +51,7 @@ public class ReceptionistClient {
 
     public ReceptionistProfileDTO getReceptionistByPhone(String phone) {
         ResponseEntity<ReceptionistProfileDTO> response = restTemplate.exchange(
-                "http://localhost:8087/receptionists/phone/{phone}",
+                receptionistServiceUrl + "/receptionists/phone/{phone}",
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
                 ReceptionistProfileDTO.class,

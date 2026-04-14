@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: escriptpro
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+
+  authservice:
+    build: ./authservice
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    volumes:
+      - ./authservice/data:/app/data
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  doctor-service:
+    build: ./doctor-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    volumes:
+      - ./doctor-service/data:/app/data
+      - ./doctor-service/uploads:/app/uploads
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  receptionist-service:
+    build: ./receptionist-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  patient-service:
+    build: ./patient-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    volumes:
+      - ./patient-service/data:/app/data
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  medicine-service:
+    build: ./medicine-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  pdf-service:
+    build: ./pdf-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  prescription-service:
+    build: ./prescription-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8081:8080"
+    depends_on:
+      - authservice
+      - doctor-service
+      - receptionist-service
+      - patient-service
+      - medicine-service
+      - pdf-service
+      - prescription-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  frontend:
+    build: ./escriptpro-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,14 +38,20 @@ public class PatientService {
     private final PatientRepository patientRepository;
     private final RestTemplate restTemplate;
     private final KafkaProducerService kafkaProducerService;
+    private final String doctorServiceUrl;
+    private final String prescriptionServiceUrl;
 
     public PatientService(
             PatientRepository patientRepository,
             RestTemplate restTemplate,
-            KafkaProducerService kafkaProducerService) {
+            KafkaProducerService kafkaProducerService,
+            @Value("${services.doctor-service.url}") String doctorServiceUrl,
+            @Value("${services.prescription-service.url}") String prescriptionServiceUrl) {
         this.patientRepository = patientRepository;
         this.restTemplate = restTemplate;
         this.kafkaProducerService = kafkaProducerService;
+        this.doctorServiceUrl = doctorServiceUrl;
+        this.prescriptionServiceUrl = prescriptionServiceUrl;
     }
 
     public Patient savePatient(Patient patient, String email, String token, String role, Long doctorIdFromToken) {
@@ -235,7 +242,7 @@ public class PatientService {
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         ResponseEntity<DoctorResponseDTO> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/email/{email}",
+                doctorServiceUrl + "/doctors/email/{email}",
                 HttpMethod.GET,
                 entity,
                 DoctorResponseDTO.class,
@@ -267,7 +274,7 @@ public class PatientService {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         try {
             restTemplate.exchange(
-                    "http://localhost:8083/prescriptions/patient/{patientId}",
+                    prescriptionServiceUrl + "/prescriptions/patient/{patientId}",
                     HttpMethod.DELETE,
                     entity,
                     Void.class,

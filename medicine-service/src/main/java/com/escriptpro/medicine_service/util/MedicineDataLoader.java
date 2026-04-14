@@ -39,6 +39,11 @@ public class MedicineDataLoader implements CommandLineRunner {
 
     public void loadData() throws IOException {
         Path cleanDataPath = resolveCleanDataPath();
+        
+        // Skip if clean data file doesn't exist
+        if (!Files.exists(cleanDataPath)) {
+            return;
+        }
 
         try (BufferedReader reader = Files.newBufferedReader(cleanDataPath, StandardCharsets.UTF_8)) {
             String line = reader.readLine();
