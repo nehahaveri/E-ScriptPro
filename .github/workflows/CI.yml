@@ -1,0 +1,135 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      authservice: ${{ steps.filter.outputs.authservice }}
+      doctor: ${{ steps.filter.outputs.doctor }}
+      patient: ${{ steps.filter.outputs.patient }}
+      medicine: ${{ steps.filter.outputs.medicine }}
+      pdf: ${{ steps.filter.outputs.pdf }}
+      prescription: ${{ steps.filter.outputs.prescription }}
+      receptionist: ${{ steps.filter.outputs.receptionist }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            authservice:
+              - 'authservice/**'
+            doctor:
+              - 'doctor-service/**'
+            patient:
+              - 'patient-service/**'
+            medicine:
+              - 'medicine-service/**'
+            pdf:
+              - 'pdf-service/**'
+            prescription:
+              - 'prescription-service/**'
+            receptionist:
+              - 'receptionist-service/**'
+            gateway:
+              - 'api-gateway/**'
+            frontend:
+              - 'escriptpro-frontend/**'
+
+---
+
+  build-and-deploy:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > $HOME/.kube/config
+
+      # AUTH SERVICE
+      - name: Build & Push Auth
+        if: needs.detect-changes.outputs.authservice == 'true'
+        run: |
+          docker build -t amoghlokhande/authservice:latest ./authservice
+          docker push amoghlokhande/authservice:latest
+          kubectl set image deployment/authservice authservice=amoghlokhande/authservice:latest -n escriptpro
+
+      # DOCTOR SERVICE
+      - name: Build & Push Doctor
+        if: needs.detect-changes.outputs.doctor == 'true'
+        run: |
+          docker build -t amoghlokhande/doctor-service:latest ./doctor-service
+          docker push amoghlokhande/doctor-service:latest
+          kubectl set image deployment/doctor-service doctor-service=amoghlokhande/doctor-service:latest -n escriptpro
+
+      # PATIENT SERVICE
+      - name: Build & Push Patient
+        if: needs.detect-changes.outputs.patient == 'true'
+        run: |
+          docker build -t amoghlokhande/patient-service:latest ./patient-service
+          docker push amoghlokhande/patient-service:latest
+          kubectl set image deployment/patient-service patient-service=amoghlokhande/patient-service:latest -n escriptpro
+
+      # MEDICINE SERVICE
+      - name: Build & Push Medicine
+        if: needs.detect-changes.outputs.medicine == 'true'
+        run: |
+          docker build -t amoghlokhande/medicine-service:latest ./medicine-service
+          docker push amoghlokhande/medicine-service:latest
+          kubectl set image deployment/medicine-service medicine-service=amoghlokhande/medicine-service:latest -n escriptpro
+
+      # PDF SERVICE
+      - name: Build & Push PDF
+        if: needs.detect-changes.outputs.pdf == 'true'
+        run: |
+          docker build -t amoghlokhande/pdf-service:latest ./pdf-service
+          docker push amoghlokhande/pdf-service:latest
+          kubectl set image deployment/pdf-service pdf-service=amoghlokhande/pdf-service:latest -n escriptpro
+
+      # PRESCRIPTION SERVICE
+      - name: Build & Push Prescription
+        if: needs.detect-changes.outputs.prescription == 'true'
+        run: |
+          docker build -t amoghlokhande/prescription-service:latest ./prescription-service
+          docker push amoghlokhande/prescription-service:latest
+          kubectl set image deployment/prescription-service prescription-service=amoghlokhande/prescription-service:latest -n escriptpro
+
+      # RECEPTIONIST SERVICE
+      - name: Build & Push Receptionist
+        if: needs.detect-changes.outputs.receptionist == 'true'
+        run: |
+          docker build -t amoghlokhande/receptionist-service:latest ./receptionist-service
+          docker push amoghlokhande/receptionist-service:latest
+          kubectl set image deployment/receptionist-service receptionist-service=amoghlokhande/receptionist-service:latest -n escriptpro
+
+      # API GATEWAY
+      - name: Build & Push Gateway
+        if: needs.detect-changes.outputs.gateway == 'true'
+        run: |
+          docker build -t amoghlokhande/api-gateway:latest ./api-gateway
+          docker push amoghlokhande/api-gateway:latest
+          kubectl set image deployment/api-gateway api-gateway=amoghlokhande/api-gateway:latest -n escriptpro
+
+      # FRONTEND
+      - name: Build & Push Frontend
+        if: needs.detect-changes.outputs.frontend == 'true'
+        run: |
+          docker build --build-arg VITE_API_BASE_URL=https://escriptpro.nehahaveri.in/api \
+            -t amoghlokhande/frontend:latest ./escriptpro-frontend
+          docker push amoghlokhande/frontend:latest
+          kubectl set image deployment/frontend frontend=amoghlokhande/frontend:latest -n escriptpro
