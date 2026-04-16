@@ -1,6 +1,7 @@
 package com.escriptpro.prescription_service.dto;
 
 import com.escriptpro.prescription_service.entity.Instruction;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,6 +20,10 @@ public class TabletDTO {
     private Boolean afternoon;
 
     private Boolean night;
+
+    private String scheduleType;
+
+    private List<String> weeklyDays;
 
     private Boolean withWater;
 

@@ -1,5 +1,7 @@
 package com.escriptpro.pdf_service.dto;
 
+import java.util.List;
+
 public class TabletDTO {
 
     private String brand;
@@ -7,7 +9,13 @@ public class TabletDTO {
     private Boolean morning;
     private Boolean afternoon;
     private Boolean night;
+    private String scheduleType;
+    private List<String> weeklyDays;
+    private Boolean withWater;
+    private Boolean chew;
+    private String instruction;
     private Integer duration;
+    private Integer quantity;
 
     public String getBrand() {
         return brand;
@@ -55,5 +63,53 @@ public class TabletDTO {
 
     public void setDuration(Integer duration) {
         this.duration = duration;
+    }
+
+    public String getScheduleType() {
+        return scheduleType;
+    }
+
+    public void setScheduleType(String scheduleType) {
+        this.scheduleType = scheduleType;
+    }
+
+    public List<String> getWeeklyDays() {
+        return weeklyDays;
+    }
+
+    public void setWeeklyDays(List<String> weeklyDays) {
+        this.weeklyDays = weeklyDays;
+    }
+
+    public Boolean getWithWater() {
+        return withWater;
+    }
+
+    public void setWithWater(Boolean withWater) {
+        this.withWater = withWater;
+    }
+
+    public Boolean getChew() {
+        return chew;
+    }
+
+    public void setChew(Boolean chew) {
+        this.chew = chew;
+    }
+
+    public String getInstruction() {
+        return instruction;
+    }
+
+    public void setInstruction(String instruction) {
+        this.instruction = instruction;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
     }
 }

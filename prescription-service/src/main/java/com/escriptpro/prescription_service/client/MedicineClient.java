@@ -3,6 +3,7 @@ package com.escriptpro.prescription_service.client;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -14,14 +15,16 @@ import org.springframework.web.client.RestTemplate;
 public class MedicineClient {
 
     private final RestTemplate restTemplate;
+    private final String medicineServiceUrl;
 
-    public MedicineClient(RestTemplate restTemplate) {
+    public MedicineClient(RestTemplate restTemplate, @Value("${services.medicine-service.url}") String medicineServiceUrl) {
         this.restTemplate = restTemplate;
+        this.medicineServiceUrl = medicineServiceUrl;
     }
 
     public List<Map<String, Object>> searchMedicines(String query, String type) {
         ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                "http://localhost:8084/medicines/search?query={query}&type={type}",
+                medicineServiceUrl + "/medicines/search?query={query}&type={type}",
                 HttpMethod.GET,
                 null,
                 new ParameterizedTypeReference<>() {
@@ -40,7 +43,7 @@ public class MedicineClient {
         payload.put("medicineName", medicineName);
 
         restTemplate.exchange(
-                "http://localhost:8084/medicines/suggestions/custom",
+                medicineServiceUrl + "/medicines/suggestions/custom",
                 HttpMethod.POST,
                 new HttpEntity<>(payload),
                 Void.class

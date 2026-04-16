@@ -20,6 +20,8 @@ public class Patient {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private Long patientNumber;
+
     private String name;
 
     private Integer age;
@@ -27,6 +29,26 @@ public class Patient {
     private String gender;
 
     private String mobile;
+
+    private String address;
+
+    private String appointmentDate;
+
+    private String appointmentTime;
+
+    private String appointmentStatus;
+
+    private Integer appointmentReminderMinutes;
+
+    private String calendarProvider;
+
+    private String calendarSyncStatus;
+
+    private String externalCalendarEventId;
+
+    private Integer height;
+
+    private Integer weight;
 
     private Long doctorId;
 }

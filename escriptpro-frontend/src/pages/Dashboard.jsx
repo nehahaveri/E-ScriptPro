@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ActivitySquare, BellDot, CalendarDays, Clock3, LogOut, Search, UserRound } from 'lucide-react'
 import api from '../services/api'
 
 const emptyTablet = {
@@ -7,6 +9,8 @@ const emptyTablet = {
   morning: false,
   afternoon: false,
   night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
   withWater: true,
   chew: false,
   instruction: 'AFTER_FOOD',
@@ -20,6 +24,10 @@ const emptySyrup = {
   morning: false,
   afternoon: false,
   night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  intakeType: 'TEASPOON',
+  intakeValue: '',
   duration: '',
   quantity: '',
 }
@@ -30,9 +38,245 @@ const emptyInjection = {
   daily: true,
   alternateDay: false,
   weeklyOnce: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
 }
 
+const weekDayOptions = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+
+const medicineTypeOptions = [
+  { value: 'TABLET', label: 'Tablets' },
+  { value: 'SYRUP', label: 'Syrups' },
+  { value: 'INJECTION', label: 'Injections' },
+]
+
+const createEmptyMedicineDraft = (type) => {
+  if (type === 'SYRUP') {
+    return { ...emptySyrup }
+  }
+
+  if (type === 'INJECTION') {
+    return { ...emptyInjection }
+  }
+
+  return { ...emptyTablet }
+}
+
+const getMedicineNameField = (type) => (type === 'SYRUP' ? 'syrupName' : 'medicineName')
+
+const hasMedicineValue = (type, medicine) => {
+  const nameField = getMedicineNameField(type)
+  return Boolean(medicine.brand || medicine[nameField])
+}
+
+const formatMealInstruction = (instruction) =>
+  instruction
+    .split('_')
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ')
+
+const formatScheduleLabel = (scheduleType, fallback = 'Daily') => {
+  if (scheduleType === 'WEEKLY') return 'Weekly'
+  if (scheduleType === 'ALTERNATE_DAY') return 'Alternate day'
+  if (scheduleType === 'DAILY') return 'Daily'
+  return fallback
+}
+
+const formatSyrupIntake = (intakeType, intakeValue) => {
+  if (intakeValue === null || intakeValue === undefined || intakeValue === '') {
+    return ''
+  }
+
+  if (intakeType === 'QUANTITY_PER_INTAKE') {
+    return `${intakeValue} ml per intake`
+  }
+
+  return `${intakeValue} teaspoon`
+}
+
+const summarizeMedicine = (type, medicine) => {
+  if (type === 'TABLET') {
+    const timings = ['morning', 'afternoon', 'night']
+      .filter((key) => medicine[key])
+      .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
+      .join(', ')
+
+    const weeklyDays =
+      medicine.scheduleType === 'WEEKLY' && Array.isArray(medicine.weeklyDays)
+        ? medicine.weeklyDays.map(formatWeeklyDay).join(', ')
+        : ''
+
+    const extras = [
+      medicine.withWater ? 'With water' : null,
+      medicine.chew ? 'Chew' : null,
+      formatScheduleLabel(medicine.scheduleType),
+      medicine.duration ? `${medicine.duration} ${medicine.scheduleType === 'WEEKLY' ? 'week(s)' : 'day(s)'}` : null,
+      weeklyDays || null,
+      medicine.quantity ? `${medicine.quantity} tablet(s)` : null,
+      medicine.instruction ? formatMealInstruction(medicine.instruction) : null,
+    ]
+      .filter(Boolean)
+      .join(' • ')
+
+    return [medicine.brand || 'No brand', medicine.medicineName || 'No medicine name', timings, extras]
+      .filter(Boolean)
+      .join(' | ')
+  }
+
+  if (type === 'SYRUP') {
+    const timings = ['morning', 'afternoon', 'night']
+      .filter((key) => medicine[key])
+      .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
+      .join(', ')
+
+    const weeklyDays =
+      medicine.scheduleType === 'WEEKLY' && Array.isArray(medicine.weeklyDays)
+        ? medicine.weeklyDays.map(formatWeeklyDay).join(', ')
+        : ''
+
+    const extras = [
+      formatScheduleLabel(medicine.scheduleType),
+      medicine.duration ? `${medicine.duration} ${medicine.scheduleType === 'WEEKLY' ? 'week(s)' : 'day(s)'}` : null,
+      weeklyDays || null,
+      formatSyrupIntake(medicine.intakeType, medicine.intakeValue) || null,
+      medicine.quantity ? `${medicine.quantity} ml` : null,
+    ]
+      .filter(Boolean)
+      .join(' • ')
+
+    return [medicine.brand || 'No brand', medicine.syrupName || 'No syrup name', timings, extras]
+      .filter(Boolean)
+      .join(' | ')
+  }
+
+  const schedule = ['daily', 'alternateDay', 'weeklyOnce']
+    .filter((key) => medicine[key])
+    .map((key) => {
+      if (key === 'alternateDay') return 'Alternate day'
+      if (key === 'weeklyOnce') return 'Weekly'
+      return 'Daily'
+    })
+    .join(', ')
+
+  const resolvedSchedule = formatScheduleLabel(medicine.scheduleType, schedule)
+
+  const weeklyDays = Array.isArray(medicine.weeklyDays) ? medicine.weeklyDays.map(formatWeeklyDay).join(', ') : ''
+
+  return [medicine.brand || 'No brand', medicine.medicineName || 'No injection name', resolvedSchedule, weeklyDays]
+    .filter(Boolean)
+    .join(' | ')
+}
+
+const formatWeeklyDay = (day) => day.charAt(0) + day.slice(1).toLowerCase()
+
+const normalizeWeeklyDays = (scheduleType, weeklyDays) => {
+  if (scheduleType !== 'WEEKLY' || !Array.isArray(weeklyDays)) {
+    return []
+  }
+
+  const selectedDays = new Set(weeklyDays)
+  return weekDayOptions.filter((day) => selectedDays.has(day))
+}
+
+const resolvePatientNumber = (patient) => patient?.patientNumber ?? patient?.id ?? '-'
+
+const patientInitials = (name) =>
+  (name || '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('') || 'PT'
+
+const isIsoDateOnly = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+
+const toLocalDateKey = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const normalizeCalendarDate = (value) => {
+  if (!value) {
+    return null
+  }
+
+  if (isIsoDateOnly(value)) {
+    return value
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  return toLocalDateKey(parsed)
+}
+
+const formatDisplayDate = (value) => {
+  if (!value) {
+    return 'No visit yet'
+  }
+
+  if (isIsoDateOnly(value)) {
+    const [year, month, day] = value.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+  return parsed.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+const formatDisplayTime = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  const [hours, minutes] = value.split(':').map(Number)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return value
+  }
+
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+const formatAppointmentLabel = (date, time) => [formatDisplayDate(date), formatDisplayTime(time)].filter(Boolean).join(' | ')
+const GOOGLE_PENDING_PATIENT_KEY = 'googleCalendarPendingPatientId'
+const GOOGLE_PENDING_ROUTE_KEY = 'googleCalendarPendingRoute'
+
+const calendarWeekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const serviceSections = [
+  { key: 'prescriptions', title: 'Prescription Studio', shortTitle: 'Prescription', description: 'Medicines, notes, and PDF output', badge: 'RX' },
+  { key: 'patients', title: 'Patients', shortTitle: 'Patients', description: 'Records, search, and patient selection', badge: 'PT' },
+  { key: 'appointments', title: 'Appointments', shortTitle: 'Calendar', description: 'Calendar reminders and follow-ups', badge: 'CL' },
+  { key: 'profile', title: 'Doctor Profile', shortTitle: 'Profile', description: 'Clinic identity and printed details', badge: 'DP' },
+]
+
+const isValidServiceSection = (value) => serviceSections.some((section) => section.key === value)
+
 function Dashboard() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const activeServiceFromQuery = searchParams.get('service')
+  const storedRole = (localStorage.getItem('role') || 'DOCTOR').toUpperCase()
+  const storedDoctorId = localStorage.getItem('doctorId')
+  const isReceptionist = storedRole === 'RECEPTIONIST'
   const [doctor, setDoctor] = useState(null)
   const [doctorForm, setDoctorForm] = useState({
     name: '',
@@ -54,19 +298,53 @@ function Dashboard() {
   const [selectedPatientId, setSelectedPatientId] = useState(null)
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [prescriptionHistory, setPrescriptionHistory] = useState([])
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState('')
+  const [calendarAppointments, setCalendarAppointments] = useState([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false)
 
   const [newPatient, setNewPatient] = useState({
     name: '',
     age: '',
     gender: 'MALE',
     mobile: '',
+    appointmentDate: '',
+    appointmentTime: '',
+    appointmentStatus: '',
+    appointmentReminderMinutes: '',
+    height: '',
+    weight: '',
   })
+  const [newPatientAppointmentFocused, setNewPatientAppointmentFocused] = useState(false)
+  const newPatientAppointmentInputRef = useRef(null)
+  const [newPatientAppointmentTimeFocused, setNewPatientAppointmentTimeFocused] = useState(false)
+  const newPatientAppointmentTimeInputRef = useRef(null)
 
   const [prescriptionMode, setPrescriptionMode] = useState('PATIENT')
+  const [showClinicalNotes, setShowClinicalNotes] = useState(false)
+  const [complaints, setComplaints] = useState('')
+  const [examination, setExamination] = useState('')
+  const [investigationAdvice, setInvestigationAdvice] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
+  const [bp, setBp] = useState('')
+  const [sugar, setSugar] = useState('')
+  const [treatment, setTreatment] = useState('')
+  const [followUp, setFollowUp] = useState('')
+  const [followUpDate, setFollowUpDate] = useState('')
   const [advice, setAdvice] = useState('')
-  const [consultationFee, setConsultationFee] = useState(500)
-  const [tablets, setTablets] = useState([{ ...emptyTablet }])
+  const [xrayImageUrl, setXrayImageUrl] = useState('')
+  const [xrayUploading, setXrayUploading] = useState(false)
+  const [consultationFee, setConsultationFee] = useState('')
+  const [showDoctorDetails, setShowDoctorDetails] = useState(true)
+  const [activeService, setActiveService] = useState(
+    isReceptionist
+      ? 'patients'
+      : isValidServiceSection(activeServiceFromQuery)
+        ? activeServiceFromQuery
+        : 'prescriptions'
+  )
+  const [selectedMedicineType, setSelectedMedicineType] = useState('TABLET')
+  const [medicineDraft, setMedicineDraft] = useState(createEmptyMedicineDraft('TABLET'))
+  const [tablets, setTablets] = useState([])
   const [syrups, setSyrups] = useState([])
   const [injections, setInjections] = useState([])
   const [suggestions, setSuggestions] = useState({})
@@ -77,6 +355,108 @@ function Dashboard() {
     [patients, selectedPatientId]
   )
 
+  const availableServiceSections = isReceptionist
+    ? serviceSections.filter((section) => section.key === 'patients')
+    : serviceSections
+
+  const renderAppointmentsPanel = (className = '') => (
+    <section className={`glass-panel section-chroma p-4 ${className}`.trim()}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#4c7fe2]">Calendar</p>
+          <h3 className="mt-1 text-lg font-semibold text-[#20304f]">Appointments</h3>
+        </div>
+        <CalendarDays className="h-5 w-5 text-[#4c7fe2]" />
+      </div>
+      <div className="mt-3 grid grid-cols-7 gap-2">
+        {calendarWeekdayLabels.map((label) => (
+          <span
+            key={label}
+            className="text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7d8ca8]"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 grid grid-cols-7 gap-2">
+        {appointmentDays.map((item) =>
+          item.isEmpty ? (
+            <div key={item.key} className="min-h-14 rounded-2xl" />
+          ) : (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => loadFollowUpAppointments(item.date)}
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 transition ${
+                selectedCalendarDate === item.date
+                  ? 'bg-white/82 ring-1 ring-[#4c7fe2]/24 shadow-[0_10px_22px_rgba(76,127,226,0.12)]'
+                  : item.isToday
+                    ? 'bg-[rgba(76,127,226,0.14)] hover:bg-[rgba(76,127,226,0.2)]'
+                    : 'bg-white/58 hover:bg-white/76'
+              }`}
+            >
+              <span className="text-base font-semibold text-[#20304f]">{item.day}</span>
+              <span className={`h-2 w-2 rounded-full ${item.hasAlert ? 'bg-[#4c7fe2]' : 'bg-transparent'}`} />
+            </button>
+          )
+        )}
+      </div>
+      {selectedCalendarDate && (
+        <div className="glass-well section-chroma-soft mt-4 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#3A7BD5]">Reminders</p>
+              <p className="text-sm font-medium text-[#1D2D50]">{formatDisplayDate(selectedCalendarDate)}</p>
+            </div>
+            <span className="glass-pill text-xs font-medium text-[#6f7f9a]">
+              {calendarAppointments.length} reminder(s)
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {appointmentsLoading && (
+              <p className="text-sm text-slate-500">Loading appointments...</p>
+            )}
+            {!appointmentsLoading && calendarAppointments.length === 0 && (
+              <p className="text-sm text-slate-500">No patient appointments or follow-ups scheduled for this date.</p>
+            )}
+            {!appointmentsLoading &&
+              calendarAppointments.map((appointment) => (
+                <button
+                  key={`${appointment.eventType}-${appointment.prescriptionId ?? 'appt'}-${appointment.patientId}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPatientId(appointment.patientId)
+                    selectService('patients')
+                  }}
+                  className="glass-well section-chroma-soft flex min-h-11 w-full items-center justify-between px-3 py-3 text-left transition hover:border-[#4c7fe2]/30 hover:bg-white/82"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-[#1D2D50]">
+                      {appointment.patientName} #{appointment.patientNumber ?? appointment.patientId}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {appointment.eventType === 'APPOINTMENT' ? 'Appointment' : 'Follow-up'}
+                      {appointment.appointmentTime ? ` • ${formatDisplayTime(appointment.appointmentTime)}` : ''}
+                      {appointment.patientMobile ? ` • ${appointment.patientMobile}` : ''}
+                      {appointment.diagnosis ? ` • ${appointment.diagnosis}` : ''}
+                    </p>
+                  </div>
+                  <Clock3 className="h-4 w-4 text-slate-400" />
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+      {!appointmentDays.some((item) => !item.isEmpty && item.hasAlert) && (
+        <div className="glass-well section-chroma-soft mt-4 border border-dashed border-slate-200/70 px-4 py-5 text-center">
+          <BellDot className="mx-auto h-8 w-8 text-[#b8c7df]" />
+          <p className="mt-3 text-base font-medium text-[#20304f]">No Appointments Found</p>
+          <p className="mt-1 text-sm text-[#6f7f9a]">Patient appointments and follow-ups will appear here with notification dots.</p>
+        </div>
+      )}
+    </section>
+  )
+
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) {
@@ -85,6 +465,65 @@ function Dashboard() {
     }
     loadInitialData()
   }, [])
+
+  useEffect(() => {
+    const message = sessionStorage.getItem('dashboardMessage')
+    if (!message) {
+      return
+    }
+    setProfileMessage(message)
+    sessionStorage.removeItem('dashboardMessage')
+  }, [])
+
+  useEffect(() => {
+    const googleCalendarState = searchParams.get('googleCalendar')
+    if (!googleCalendarState || isReceptionist) {
+      return
+    }
+
+    const pendingPatientId = sessionStorage.getItem(GOOGLE_PENDING_PATIENT_KEY)
+
+    const finalizeCallback = () => {
+      sessionStorage.removeItem(GOOGLE_PENDING_PATIENT_KEY)
+      sessionStorage.removeItem(GOOGLE_PENDING_ROUTE_KEY)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('googleCalendar')
+      const nextQuery = nextParams.toString()
+      navigate(nextQuery ? `/dashboard?${nextQuery}` : '/dashboard', { replace: true })
+    }
+
+    if (googleCalendarState !== 'connected') {
+      setError(
+        googleCalendarState === 'denied'
+          ? 'Google Calendar connection was cancelled.'
+          : 'Google Calendar connection failed.'
+      )
+      finalizeCallback()
+      return
+    }
+
+    if (!pendingPatientId) {
+      setProfileMessage('Google Calendar connected successfully.')
+      finalizeCallback()
+      return
+    }
+
+    const syncPendingPatient = async () => {
+      try {
+        const response = await api.post(`/calendar/google/sync/patients/${pendingPatientId}`)
+        setProfileMessage('Appointment synced to Google Calendar.')
+        if (response.data?.htmlLink) {
+          window.open(response.data.htmlLink, '_blank', 'noopener,noreferrer')
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to sync appointment to Google Calendar.')
+      } finally {
+        finalizeCallback()
+      }
+    }
+
+    syncPendingPatient()
+  }, [searchParams, navigate, isReceptionist])
 
   useEffect(() => {
     if (!selectedPatientId) {
@@ -103,30 +542,75 @@ function Dashboard() {
     return () => clearTimeout(timer)
   }, [patientQuery])
 
+  useEffect(() => {
+    const patientIdFromQuery = searchParams.get('patientId')
+    if (!patientIdFromQuery || Number.isNaN(Number(patientIdFromQuery))) {
+      return
+    }
+    setSelectedPatientId(Number(patientIdFromQuery))
+  }, [searchParams])
+
+  useEffect(() => {
+    const nextService = searchParams.get('service')
+    if (isReceptionist) {
+      if (activeService !== 'patients') {
+        setActiveService('patients')
+      }
+      return
+    }
+    if (isValidServiceSection(nextService) && nextService !== activeService) {
+      setActiveService(nextService)
+    }
+  }, [searchParams, activeService, isReceptionist])
+
   const loadInitialData = async () => {
     setLoading(true)
     setError('')
     try {
-      const [doctorRes, patientsRes] = await Promise.all([
-        api.get('/doctors/me'),
+      const [doctorRes, patientsRes] = await Promise.allSettled([
+        isReceptionist && storedDoctorId
+          ? api.get(`/doctors/${storedDoctorId}`)
+          : api.get('/doctors/me'),
         api.get('/patients'),
       ])
-      setDoctor(doctorRes.data)
-      setDoctorForm({
-        name: doctorRes.data?.name || '',
-        phone: doctorRes.data?.phone || '',
-        clinicName: doctorRes.data?.clinicName || '',
-        locality: doctorRes.data?.locality || '',
-        specialization: doctorRes.data?.specialization || '',
-        education: doctorRes.data?.education || '',
-        experience:
-          doctorRes.data?.experience !== null && doctorRes.data?.experience !== undefined
-            ? String(doctorRes.data.experience)
-            : '',
-        logoUrl: doctorRes.data?.logoUrl || '',
-        signatureUrl: doctorRes.data?.signatureUrl || '',
-      })
-      setPatients(patientsRes.data || [])
+
+      if (doctorRes.status === 'fulfilled') {
+        setDoctor(doctorRes.value.data)
+        setDoctorForm({
+          name: doctorRes.value.data?.name || '',
+          phone: doctorRes.value.data?.phone || '',
+          clinicName: doctorRes.value.data?.clinicName || '',
+          locality: doctorRes.value.data?.locality || '',
+          specialization: doctorRes.value.data?.specialization || '',
+          education: doctorRes.value.data?.education || '',
+          experience:
+            doctorRes.value.data?.experience !== null && doctorRes.value.data?.experience !== undefined
+              ? String(doctorRes.value.data.experience)
+              : '',
+          logoUrl: doctorRes.value.data?.logoUrl || '',
+          signatureUrl: doctorRes.value.data?.signatureUrl || '',
+        })
+      } else {
+        setDoctor(null)
+      }
+
+      if (patientsRes.status === 'fulfilled') {
+        setPatients(patientsRes.value.data || [])
+      } else {
+        setPatients([])
+      }
+
+      const nextErrors = []
+      if (doctorRes.status === 'rejected') {
+        nextErrors.push('doctor profile')
+      }
+      if (patientsRes.status === 'rejected') {
+        nextErrors.push('patients')
+      }
+
+      if (nextErrors.length > 0) {
+        setError(`Some dashboard data could not be loaded: ${nextErrors.join(' and ')}.`)
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load doctor workspace.')
     } finally {
@@ -149,6 +633,57 @@ function Dashboard() {
       setPrescriptionHistory(response.data || [])
     } catch {
       setPrescriptionHistory([])
+    }
+  }
+
+  const loadFollowUpAppointments = async (date) => {
+    if (!date) {
+      setSelectedCalendarDate('')
+      setCalendarAppointments([])
+      return
+    }
+
+    setAppointmentsLoading(true)
+    try {
+      const [followUpsResponse, appointmentsResponse] = await Promise.all([
+        api.get('/prescriptions/follow-ups', {
+          params: { date },
+        }),
+        api.get('/patients/appointments', {
+          params: { date },
+        }),
+      ])
+
+      const followUps = (followUpsResponse.data || []).map((item) => ({
+        ...item,
+        eventType: 'FOLLOW_UP',
+        eventDate: item.followUpDate || date,
+      }))
+
+      const appointments = (appointmentsResponse.data || []).map((item) => ({
+        prescriptionId: null,
+        patientId: item.patientId,
+        patientNumber: item.patientNumber,
+        patientName: item.patientName,
+        patientMobile: item.patientMobile,
+        patientAge: item.patientAge,
+        patientGender: item.patientGender,
+        diagnosis: '',
+        followUpDate: item.appointmentDate,
+        appointmentDate: item.appointmentDate,
+        appointmentTime: item.appointmentTime,
+        eventType: 'APPOINTMENT',
+        eventDate: item.appointmentDate || date,
+      }))
+
+      setSelectedCalendarDate(date)
+      setCalendarAppointments([...appointments, ...followUps])
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load appointments.')
+      setSelectedCalendarDate(date)
+      setCalendarAppointments([])
+    } finally {
+      setAppointmentsLoading(false)
     }
   }
 
@@ -208,10 +743,30 @@ function Dashboard() {
         age: Number(newPatient.age),
         gender: newPatient.gender,
         mobile: newPatient.mobile.trim(),
+        appointmentDate: newPatient.appointmentDate || null,
+        appointmentTime: newPatient.appointmentTime || null,
+        appointmentStatus: newPatient.appointmentDate ? newPatient.appointmentStatus : null,
+        appointmentReminderMinutes:
+          newPatient.appointmentDate && newPatient.appointmentReminderMinutes !== ''
+            ? Number(newPatient.appointmentReminderMinutes)
+            : null,
+        height: newPatient.height === '' ? null : Number(newPatient.height),
+        weight: newPatient.weight === '' ? null : Number(newPatient.weight),
       }
       const response = await api.post('/patients', payload)
       setPatients((prev) => [response.data, ...prev])
-      setNewPatient({ name: '', age: '', gender: 'MALE', mobile: '' })
+      setNewPatient({
+        name: '',
+        age: '',
+        gender: 'MALE',
+        mobile: '',
+        appointmentDate: '',
+        appointmentTime: '',
+        appointmentStatus: '',
+        appointmentReminderMinutes: '',
+        height: '',
+        weight: '',
+      })
       setSelectedPatientId(response.data.id)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create patient.')
@@ -249,13 +804,22 @@ function Dashboard() {
         return
       }
 
-      const endpoint = field === 'brand' ? '/medicines/search/brands' : '/medicines/search/names'
-      const response = await api.get(endpoint, {
+      const response = await api.get('/medicines/search', {
         params: { query: normalizedQuery, type },
       })
       const data = Array.isArray(response.data) ? response.data : []
       const values = [
-        ...new Set(data.map((item) => (typeof item === 'string' ? item : '')).filter(Boolean)),
+        ...new Set(
+          data
+            .map((item) => {
+              if (!item || typeof item !== 'object') {
+                return ''
+              }
+
+              return field === 'brand' ? item.brand : item.medicineName
+            })
+            .filter(Boolean)
+        ),
       ].slice(0, 10)
 
       suggestionCacheRef.current.set(cacheKey, values)
@@ -265,16 +829,207 @@ function Dashboard() {
     }
   }
 
-  const onTabletChange = (index, field, value) => {
-    setTablets((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+  const updateMedicineDraft = (field, value) => {
+    setMedicineDraft((prev) => ({ ...prev, [field]: value }))
   }
 
-  const onSyrupChange = (index, field, value) => {
-    setSyrups((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+  const selectService = (serviceKey) => {
+    if (isReceptionist && serviceKey !== 'patients') {
+      return
+    }
+    setActiveService(serviceKey)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('service', serviceKey)
+    navigate(`/dashboard?${nextParams.toString()}`, { replace: true })
   }
 
-  const onInjectionChange = (index, field, value) => {
-    setInjections((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+  const openPrescriptionForPatient = (patientId) => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('patientId', String(patientId))
+    nextParams.set('service', 'prescriptions')
+    navigate(`/dashboard?${nextParams.toString()}`)
+  }
+
+  const openTimePicker = (inputRef) => {
+    const input = inputRef.current
+    if (!input) {
+      return
+    }
+    input.type = 'time'
+    input.focus()
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+    }
+  }
+
+  const downloadCalendarInvite = async (patientId) => {
+    try {
+      const response = await api.get(`/patients/${patientId}/calendar.ics`, {
+        responseType: 'blob',
+      })
+      const blob = new Blob([response.data], { type: 'text/calendar;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `appointment-${patientId}.ics`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to download calendar invite.')
+    }
+  }
+
+  const connectAndSyncGoogleCalendar = async (patient) => {
+    if (!patient?.appointmentDate) {
+      setError('Add an appointment date before syncing with Google Calendar.')
+      return
+    }
+
+    try {
+      const statusResponse = await api.get('/calendar/google/status')
+      if (statusResponse.data?.connected) {
+        const response = await api.post(`/calendar/google/sync/patients/${patient.id}`)
+        setProfileMessage('Appointment synced to Google Calendar.')
+        if (response.data?.htmlLink) {
+          window.open(response.data.htmlLink, '_blank', 'noopener,noreferrer')
+        }
+        return
+      }
+
+      sessionStorage.setItem(GOOGLE_PENDING_PATIENT_KEY, String(patient.id))
+      sessionStorage.setItem(GOOGLE_PENDING_ROUTE_KEY, window.location.href)
+      const connectResponse = await api.get('/calendar/google/connect', {
+        params: { redirectUri: window.location.href },
+      })
+      const authorizationUrl = connectResponse.data?.authorizationUrl
+      if (!authorizationUrl) {
+        throw new Error('Missing Google authorization URL.')
+      }
+      window.location.href = authorizationUrl
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to start Google Calendar sync.')
+    }
+  }
+
+  const handleMedicineTypeChange = (nextType) => {
+    setSelectedMedicineType(nextType)
+    setMedicineDraft(createEmptyMedicineDraft(nextType))
+    setSuggestions((prev) => ({
+      ...prev,
+      [`${nextType.toLowerCase()}-draft-brand`]: [],
+      [`${nextType.toLowerCase()}-draft-name`]: [],
+    }))
+  }
+
+  const updateMedicineSchedule = (scheduleType) => {
+    setMedicineDraft((prev) => ({
+      ...prev,
+      scheduleType,
+      daily: selectedMedicineType === 'INJECTION' ? scheduleType === 'DAILY' : prev.daily,
+      weeklyOnce: selectedMedicineType === 'INJECTION' ? scheduleType === 'WEEKLY' : prev.weeklyOnce,
+      alternateDay: selectedMedicineType === 'INJECTION' ? scheduleType === 'ALTERNATE_DAY' : prev.alternateDay,
+      weeklyDays: scheduleType === 'WEEKLY' ? prev.weeklyDays || [] : [],
+    }))
+  }
+
+  const toggleWeeklyDay = (day) => {
+    setMedicineDraft((prev) => {
+      if (prev.scheduleType !== 'WEEKLY') {
+        return prev
+      }
+
+      const nextDays = prev.weeklyDays.includes(day)
+        ? prev.weeklyDays.filter((value) => value !== day)
+        : [...prev.weeklyDays, day]
+
+      return {
+        ...prev,
+        weeklyDays: normalizeWeeklyDays(prev.scheduleType, nextDays),
+      }
+    })
+  }
+
+  const addMedicine = () => {
+    setError('')
+
+    if (!hasMedicineValue(selectedMedicineType, medicineDraft)) {
+      setError('Enter at least a medicine brand or name before adding.')
+      return
+    }
+
+    if (medicineDraft.scheduleType === 'WEEKLY' && medicineDraft.weeklyDays.length === 0) {
+      setError(`Select at least one day for a weekly ${selectedMedicineType.toLowerCase()}.`)
+      return
+    }
+
+    if (selectedMedicineType === 'TABLET') {
+      setTablets((prev) => [
+        ...prev,
+        { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) },
+      ])
+    } else if (selectedMedicineType === 'SYRUP') {
+      setSyrups((prev) => [
+        ...prev,
+        { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) },
+      ])
+    } else {
+      setInjections((prev) => [
+        ...prev,
+        { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) },
+      ])
+    }
+
+    setSuggestions((prev) => ({
+      ...prev,
+      [`${selectedMedicineType.toLowerCase()}-draft-brand`]: [],
+      [`${selectedMedicineType.toLowerCase()}-draft-name`]: [],
+    }))
+    setMedicineDraft(createEmptyMedicineDraft(selectedMedicineType))
+  }
+
+  const uploadXray = async (file) => {
+    if (!file) {
+      return
+    }
+
+    setError('')
+    setXrayUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await api.post('/prescriptions/upload-xray', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setXrayImageUrl(response.data?.url || '')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload x-ray image.')
+    } finally {
+      setXrayUploading(false)
+    }
+  }
+
+  const removeMedicine = (type, index) => {
+    if (type === 'TABLET') {
+      setTablets((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
+
+    if (type === 'SYRUP') {
+      setSyrups((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
+
+    setInjections((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const brandSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-brand`
+  const nameSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-name`
+  const medicineCounts = {
+    TABLET: tablets.filter((item) => hasMedicineValue('TABLET', item)).length,
+    SYRUP: syrups.filter((item) => hasMedicineValue('SYRUP', item)).length,
+    INJECTION: injections.filter((item) => hasMedicineValue('INJECTION', item)).length,
   }
 
   const submitPrescription = async (event) => {
@@ -284,18 +1039,51 @@ function Dashboard() {
       const payload = {
         patientId: prescriptionMode === 'PATIENT' ? selectedPatientId : null,
         doctorName: doctorForm.name,
+        doctorEmail: doctor?.email || '',
+        doctorPhone: doctorForm.phone,
         clinicName: doctorForm.clinicName,
+        showDoctorName: showDoctorDetails,
+        showClinicName: showDoctorDetails,
         locality: doctorForm.locality,
         education: doctorForm.education,
         logoUrl: doctorForm.logoUrl,
         signatureUrl: doctorForm.signatureUrl,
+        complaints: complaints.trim(),
+        examination: examination.trim(),
+        investigationAdvice: investigationAdvice.trim(),
         diagnosis: diagnosis.trim(),
+        bp: bp.trim(),
+        sugar: sugar.trim(),
+        treatment: treatment.trim(),
+        followUp: followUp.trim(),
+        followUpDate: followUpDate || null,
+        xrayImageUrl: xrayImageUrl.trim(),
         advice: advice.trim(),
-        consultationFee: Number(consultationFee),
+        consultationFee: consultationFee === '' ? null : Number(consultationFee),
+        fee: consultationFee === '' ? null : Number(consultationFee),
         tablets: tablets.filter((t) => t.brand || t.medicineName),
         syrups: syrups.filter((s) => s.brand || s.syrupName),
-        injections: injections.filter((i) => i.brand || i.medicineName),
+        injections: injections
+          .filter((i) => i.brand || i.medicineName)
+          .map((injection) => ({
+            ...injection,
+            daily: injection.scheduleType === 'DAILY',
+            weeklyOnce: injection.scheduleType === 'WEEKLY',
+            alternateDay: injection.scheduleType === 'ALTERNATE_DAY',
+            weeklyDays: normalizeWeeklyDays(injection.scheduleType, injection.weeklyDays),
+          })),
       }
+
+      payload.tablets = payload.tablets.map((tablet) => ({
+        ...tablet,
+        weeklyDays: normalizeWeeklyDays(tablet.scheduleType, tablet.weeklyDays),
+      }))
+
+      payload.syrups = payload.syrups.map((syrup) => ({
+        ...syrup,
+        weeklyDays: normalizeWeeklyDays(syrup.scheduleType, syrup.weeklyDays),
+        intakeValue: syrup.intakeValue === '' ? null : Number(syrup.intakeValue),
+      }))
 
       if (prescriptionMode === 'PATIENT' && !selectedPatientId) {
         setError('Select a patient for patient-based prescription.')
@@ -326,565 +1114,1197 @@ function Dashboard() {
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    localStorage.removeItem('doctorId')
     window.location.href = '/'
   }
 
+  const stats = [
+    { label: 'Patients', value: patients.length },
+    { label: 'Prescriptions', value: prescriptionHistory.length },
+    { label: 'Medicines', value: tablets.length + syrups.length + injections.length },
+  ]
+
+  const openDatePicker = (inputRef) => {
+    const input = inputRef?.current
+    if (!input) {
+      return
+    }
+    input.focus()
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+    }
+  }
+
+  const appointmentDays = useMemo(() => {
+    const dates = prescriptionHistory
+      .map((item) => item.followUpDate || item.visitDate)
+      .filter(Boolean)
+      .map((value) => normalizeCalendarDate(value))
+      .filter(Boolean)
+
+    const patientAppointmentDates = patients
+      .map((patient) => patient.appointmentDate)
+      .filter(Boolean)
+      .map((value) => normalizeCalendarDate(value))
+      .filter(Boolean)
+
+    const highlightedDays = new Set([...dates, ...patientAppointmentDates])
+    const today = new Date()
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const leadingEmptyDays = monthStart.getDay()
+    const totalDaysInMonth = monthEnd.getDate()
+    const items = []
+
+    for (let index = 0; index < leadingEmptyDays; index += 1) {
+      items.push({
+        key: `empty-${index}`,
+        isEmpty: true,
+      })
+    }
+
+    for (let day = 1; day <= totalDaysInMonth; day += 1) {
+      const date = new Date(today.getFullYear(), today.getMonth(), day)
+      const isoDate = toLocalDateKey(date)
+      items.push({
+        key: isoDate,
+        isEmpty: false,
+        label: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        day,
+        date: isoDate,
+        hasAlert: highlightedDays.has(isoDate),
+        isToday: isoDate === toLocalDateKey(today),
+      })
+    }
+
+    return items
+  }, [prescriptionHistory, patients])
+
   if (loading) {
-    return <main className="min-h-screen bg-slate-100 p-6">Loading dashboard...</main>
+    return <main className="app-shell flex items-center justify-center text-slate-600">Loading dashboard...</main>
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
-      <section className="max-w-7xl mx-auto space-y-5">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">Doctor Workspace</h1>
+    <main className="app-shell relative overflow-hidden p-3 sm:p-4 lg:p-6">
+      <span className="liquid-orb left-[-6rem] top-16 h-44 w-44 bg-[radial-gradient(circle,_rgba(132,231,255,0.72),_rgba(132,231,255,0))]" />
+      <span className="liquid-orb right-[-4rem] top-28 h-40 w-40 bg-[radial-gradient(circle,_rgba(86,145,255,0.46),_rgba(86,145,255,0))]" />
+      <span className="liquid-orb bottom-16 right-[18%] h-52 w-52 bg-[radial-gradient(circle,_rgba(122,229,214,0.4),_rgba(122,229,214,0))]" />
+      <section className="mx-auto max-w-7xl space-y-4 lg:space-y-5">
+        <header className="glass-panel grid gap-4 px-4 py-4 sm:px-5 xl:grid-cols-[1fr,minmax(320px,540px),auto] xl:items-center">
+          <div>
+            <p className="glass-kicker">E-ScriptPro</p>
+            <h1 className="glass-heading text-xl font-semibold sm:text-2xl">
+              {isReceptionist ? 'Receptionist Dashboard' : 'Medical Professional Dashboard'}
+            </h1>
+          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              searchPatients()
+            }}
+            className="glass-well flex min-h-11 items-center gap-3 px-4 py-3"
+          >
+            <Search className="h-5 w-5 text-[#3A7BD5]" />
+            <input
+              value={patientQuery}
+              onChange={(e) => setPatientQuery(e.target.value)}
+              className="w-full bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400"
+              placeholder="Search patients, mobile, or ID"
+            />
+          </form>
           <button
             type="button"
             onClick={logout}
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+            className="button-glass min-w-[120px]"
           >
+            <LogOut className="mr-2 h-4 w-4" />
             Logout
           </button>
         </header>
 
         {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-200">
+          <p className="glass-well border border-red-200/80 px-3 py-2 text-sm text-red-700">
             {error}
           </p>
         )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-          <div className="xl:col-span-1 rounded-xl bg-white border border-slate-200 p-4 space-y-4">
-            <h2 className="text-lg font-semibold">Doctor Profile</h2>
-            <form onSubmit={saveProfile} className="space-y-3">
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Name"
-                value={doctorForm.name}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, name: e.target.value }))}
-              />
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Phone"
-                value={doctorForm.phone}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, phone: e.target.value }))}
-              />
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Clinic Name"
-                value={doctorForm.clinicName}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, clinicName: e.target.value }))}
-              />
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Locality / Address"
-                value={doctorForm.locality}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, locality: e.target.value }))}
-              />
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Specialization"
-                value={doctorForm.specialization}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, specialization: e.target.value }))}
-              />
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Education (MBBS/MD/BAMS...)"
-                value={doctorForm.education}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, education: e.target.value }))}
-              />
-              <input
-                type="number"
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Experience (years)"
-                value={doctorForm.experience}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, experience: e.target.value }))}
-              />
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Logo URL"
-                value={doctorForm.logoUrl}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, logoUrl: e.target.value }))}
-              />
-              <input
-                type="file"
-                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                className="w-full rounded border px-3 py-2 text-sm"
-                onChange={(e) => uploadAsset('logo', e.target.files?.[0])}
-              />
-              {doctorForm.logoUrl && (
-                <img
-                  src={doctorForm.logoUrl}
-                  alt="Logo preview"
-                  className="h-16 w-auto rounded border bg-slate-50 object-contain"
-                />
-              )}
-              <input
-                className="w-full rounded border px-3 py-2 text-sm"
-                placeholder="Signature URL"
-                value={doctorForm.signatureUrl}
-                onChange={(e) => setDoctorForm((p) => ({ ...p, signatureUrl: e.target.value }))}
-              />
-              <input
-                type="file"
-                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                className="w-full rounded border px-3 py-2 text-sm"
-                onChange={(e) => uploadAsset('signature', e.target.files?.[0])}
-              />
-              {doctorForm.signatureUrl && (
-                <img
-                  src={doctorForm.signatureUrl}
-                  alt="Signature preview"
-                  className="h-16 w-auto rounded border bg-slate-50 object-contain"
-                />
-              )}
-              <button className="w-full rounded bg-slate-900 text-white py-2 text-sm">Save Profile</button>
-              {profileMessage && <p className="text-xs text-emerald-700">{profileMessage}</p>}
-            </form>
-          </div>
-
-          <div className="xl:col-span-2 rounded-xl bg-white border border-slate-200 p-4 space-y-4">
-            <h2 className="text-lg font-semibold">Patients</h2>
-
-            <form onSubmit={createPatient} className="grid grid-cols-1 md:grid-cols-5 gap-2">
-              <input
-                required
-                className="rounded border px-3 py-2 text-sm"
-                placeholder="Name"
-                value={newPatient.name}
-                onChange={(e) => setNewPatient((p) => ({ ...p, name: e.target.value }))}
-              />
-              <input
-                required
-                type="number"
-                className="rounded border px-3 py-2 text-sm"
-                placeholder="Age"
-                value={newPatient.age}
-                onChange={(e) => setNewPatient((p) => ({ ...p, age: e.target.value }))}
-              />
-              <select
-                className="rounded border px-3 py-2 text-sm"
-                value={newPatient.gender}
-                onChange={(e) => setNewPatient((p) => ({ ...p, gender: e.target.value }))}
-              >
-                <option value="MALE">MALE</option>
-                <option value="FEMALE">FEMALE</option>
-                <option value="OTHER">OTHER</option>
-              </select>
-              <input
-                required
-                className="rounded border px-3 py-2 text-sm"
-                placeholder="Mobile"
-                value={newPatient.mobile}
-                onChange={(e) => setNewPatient((p) => ({ ...p, mobile: e.target.value }))}
-              />
-              <button className="rounded bg-emerald-600 text-white text-sm py-2">Create</button>
-            </form>
-
-            <div className="flex gap-2">
-              <input
-                className="flex-1 rounded border px-3 py-2 text-sm"
-                placeholder="Search by patient name or mobile"
-                value={patientQuery}
-                onChange={(e) => setPatientQuery(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={searchPatients}
-                className="rounded bg-slate-900 text-white px-3 py-2 text-sm"
-              >
-                Search
-              </button>
-            </div>
-
-            <div className="max-h-56 overflow-y-auto border rounded">
-              {(patients || []).map((patient) => (
-                <button
-                  key={patient.id}
-                  type="button"
-                  onClick={() => setSelectedPatientId(patient.id)}
-                  className={`w-full text-left px-3 py-2 text-sm border-b ${
-                    selectedPatientId === patient.id ? 'bg-slate-100' : 'bg-white'
-                  }`}
-                >
-                  <strong>{patient.name}</strong> | {patient.age} | {patient.gender} | {patient.mobile}
-                </button>
-              ))}
-              {patients.length === 0 && (
-                <p className="px-3 py-2 text-sm text-slate-500">No patients found.</p>
-              )}
-            </div>
-
-            {selectedPatient && (
-              <div className="rounded border p-3 bg-slate-50">
-                <p className="text-sm font-medium">Selected Patient: {selectedPatient.name}</p>
-                <p className="text-xs text-slate-600">
-                  Age: {selectedPatient.age} | Gender: {selectedPatient.gender} | Mobile:{' '}
-                  {selectedPatient.mobile}
-                </p>
-                <p className="text-xs text-slate-600 mt-2">
-                  Previous Prescriptions: {prescriptionHistory.length}
-                </p>
-                <div className="mt-2 max-h-36 overflow-y-auto text-xs space-y-1">
-                  {prescriptionHistory.map((p) => (
-                    <div key={p.id} className="rounded border px-2 py-1 bg-white">
-                      {p.visitDate}: {p.diagnosis}
-                    </div>
-                  ))}
-                </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px,minmax(0,1fr)]">
+          <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+            <div className="glass-panel section-highlight overflow-hidden p-5 text-white">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white">
+                {isReceptionist ? 'Reception Desk' : 'Practice Console'}
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold">{doctor?.name || doctorForm.name || 'Doctor'}</h2>
+              <p className="mt-1 text-base text-white">
+                {isReceptionist
+                  ? `Working with ${doctor?.name || 'assigned doctor'}`
+                  : (doctor?.specialization || doctorForm.specialization || 'Complete your clinic identity to print polished prescriptions.')}
+              </p>
+              <div className="mt-5 space-y-2">
+                {stats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-[26px] border border-white/45 bg-[rgba(8,37,92,0.28)] px-3 py-3 text-white backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]"
+                  >
+                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/90">
+                      {stat.label}
+                    </p>
+                    <p className="shrink-0 text-lg font-semibold leading-none text-white">{stat.value}</p>
+                  </div>
+                ))}
               </div>
+            </div>
+
+            <nav className="glass-panel section-chroma hidden p-3 xl:block">
+              <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#4c7fe2]">Services</p>
+              <div className="space-y-2">
+                {availableServiceSections.map((section) => {
+                  const active = activeService === section.key
+                  return (
+                    <button
+                      key={section.key}
+                      type="button"
+                      onClick={() => selectService(section.key)}
+                      className={`flex w-full items-center gap-3 rounded-[24px] border px-3 py-3 text-left transition ${
+                        active
+                          ? 'border-white/80 bg-white/78 shadow-[0_16px_35px_rgba(8,145,178,0.16)]'
+                          : 'border-white/60 bg-white/52 hover:border-cyan-200 hover:bg-white/72'
+                      }`}
+                    >
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[11px] font-semibold ${
+                          active ? 'bg-[#2d7da8] text-white shadow-[0_12px_24px_rgba(45,125,168,0.28)]' : 'bg-white text-[#41516f]'
+                        }`}
+                      >
+                        {section.badge}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-semibold text-[#20304f]">{section.title}</span>
+                        <span className="block truncate text-[11px] text-[#6f7f9a]">{section.description}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </nav>
+
+            {!isReceptionist && renderAppointmentsPanel('hidden xl:block')}
+          </aside>
+
+          <div className="space-y-4">
+            <div className="flex gap-2 overflow-x-auto pb-1 xl:hidden">
+              {availableServiceSections.map((section) => {
+                const active = activeService === section.key
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() => selectService(section.key)}
+                    className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      active
+                        ? 'border-white/70 bg-white/70 text-cyan-800'
+                        : 'border-white/60 bg-white/40 text-slate-600'
+                    }`}
+                  >
+                    {section.shortTitle}
+                  </button>
+                )
+              })}
+            </div>
+
+            {activeService === 'profile' && (
+              <section className="glass-panel-strong section-chroma p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                  <div>
+                    <p className="glass-kicker">Doctor Profile</p>
+                    <h2 className="glass-heading text-xl font-semibold">Printed identity and clinic details</h2>
+                    {doctor?.id && (
+                      <p className="mt-2 inline-flex items-center rounded-full border border-cyan-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-900 shadow-[0_10px_24px_rgba(93,146,255,0.16)]">
+                        Doctor ID: {doctor.id}
+                      </p>
+                    )}
+                  </div>
+                  <p className="glass-pill text-slate-600">
+                    Used in PDF header when doctor details are enabled
+                  </p>
+                </div>
+
+                <form onSubmit={saveProfile} className="mt-5 grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.1fr),320px]">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input
+                      className="glass-input md:col-span-2"
+                      value={doctor?.id ? `Doctor ID: ${doctor.id}` : 'Doctor ID will appear here'}
+                      readOnly
+                    />
+                    <input
+                      className="glass-input"
+                      placeholder="Name"
+                      value={doctorForm.name}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, name: e.target.value }))}
+                    />
+                    <input
+                      className="glass-input"
+                      placeholder="Phone"
+                      value={doctorForm.phone}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, phone: e.target.value }))}
+                    />
+                    <input
+                      className="glass-input"
+                      placeholder="Clinic Name"
+                      value={doctorForm.clinicName}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, clinicName: e.target.value }))}
+                    />
+                    <input
+                      className="glass-input"
+                      placeholder="Specialization"
+                      value={doctorForm.specialization}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, specialization: e.target.value }))}
+                    />
+                    <input
+                      className="glass-input md:col-span-2"
+                      placeholder="Locality / Address"
+                      value={doctorForm.locality}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, locality: e.target.value }))}
+                    />
+                    <input
+                      className="glass-input"
+                      placeholder="Education (MBBS/MD/BAMS...)"
+                      value={doctorForm.education}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, education: e.target.value }))}
+                    />
+                    <input
+                      type="number"
+                      className="glass-input"
+                      placeholder="Experience (years)"
+                      value={doctorForm.experience}
+                      onChange={(e) => setDoctorForm((p) => ({ ...p, experience: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="glass-well section-chroma-soft space-y-4 p-4">
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Logo</label>
+                      <input
+                        className="glass-input"
+                        placeholder="Logo URL"
+                        value={doctorForm.logoUrl}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, logoUrl: e.target.value }))}
+                      />
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                        className="glass-input border-dashed"
+                        onChange={(e) => uploadAsset('logo', e.target.files?.[0])}
+                      />
+                      {doctorForm.logoUrl && (
+                        <img
+                          src={doctorForm.logoUrl}
+                          alt="Logo preview"
+                          className="h-20 w-full rounded-[22px] border border-white/60 bg-white/75 object-contain"
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Signature</label>
+                      <input
+                        className="glass-input"
+                        placeholder="Signature URL"
+                        value={doctorForm.signatureUrl}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, signatureUrl: e.target.value }))}
+                      />
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                        className="glass-input border-dashed"
+                        onChange={(e) => uploadAsset('signature', e.target.files?.[0])}
+                      />
+                      {doctorForm.signatureUrl && (
+                        <img
+                          src={doctorForm.signatureUrl}
+                          alt="Signature preview"
+                          className="h-20 w-full rounded-[22px] border border-white/60 bg-white/75 object-contain"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="2xl:col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+                    {profileMessage ? <p className="text-sm text-emerald-700">{profileMessage}</p> : <span />}
+                    <button className="button-glass px-5 py-3">
+                      Save Profile
+                    </button>
+                  </div>
+                </form>
+              </section>
+            )}
+
+            {activeService === 'patients' && (
+              <section className="glass-panel-strong section-chroma p-4 sm:p-5 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="glass-kicker">Patient Desk</p>
+                    <h2 className="glass-heading text-xl font-semibold">Patients</h2>
+                  </div>
+                  <p className="glass-pill text-slate-600">
+                    {patients.length} patient record(s)
+                  </p>
+                </div>
+
+                <form onSubmit={createPatient} className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <input
+                    required
+                    className="glass-input"
+                    placeholder="Name"
+                    value={newPatient.name}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, name: e.target.value }))}
+                  />
+                  <input
+                    required
+                    type="number"
+                    className="glass-input"
+                    placeholder="Age"
+                    value={newPatient.age}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, age: e.target.value }))}
+                  />
+                  <select
+                    className="glass-input"
+                    value={newPatient.gender}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, gender: e.target.value }))}
+                  >
+                    <option value="MALE">MALE</option>
+                    <option value="FEMALE">FEMALE</option>
+                    <option value="OTHER">OTHER</option>
+                  </select>
+                  <input
+                    required
+                    className="glass-input"
+                    placeholder="Mobile"
+                    value={newPatient.mobile}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, mobile: e.target.value }))}
+                  />
+                  <label className="date-input-shell relative md:col-span-2 xl:col-span-1">
+                    {!newPatient.appointmentDate && !newPatientAppointmentFocused && (
+                      <span className="date-input-overlay pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400">
+                        Appointment Date
+                      </span>
+                    )}
+                    <input
+                      ref={newPatientAppointmentInputRef}
+                      type="date"
+                      className={`glass-input w-full pr-12 ${!newPatient.appointmentDate ? 'date-input-empty' : ''}`}
+                      aria-label="Appointment Date"
+                      value={newPatient.appointmentDate}
+                      onFocus={() => setNewPatientAppointmentFocused(true)}
+                      onBlur={() => setNewPatientAppointmentFocused(false)}
+                      onChange={(e) => setNewPatient((p) => ({ ...p, appointmentDate: e.target.value }))}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Open appointment date calendar"
+                      onClick={() => openDatePicker(newPatientAppointmentInputRef)}
+                      className="absolute right-3 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/70 text-[#3A7BD5] shadow-[0_8px_20px_rgba(58,123,213,0.14)] transition hover:bg-white"
+                    >
+                      <CalendarDays className="h-4 w-4" />
+                    </button>
+                  </label>
+                  <label className="date-input-shell relative md:col-span-2 xl:col-span-1">
+                    <input
+                      ref={newPatientAppointmentTimeInputRef}
+                      type={newPatientAppointmentTimeFocused || newPatient.appointmentTime ? 'time' : 'text'}
+                      className="glass-input w-full pr-14"
+                      aria-label="Appointment Time"
+                      placeholder="Appointment Time"
+                      value={newPatient.appointmentTime}
+                      onFocus={() => setNewPatientAppointmentTimeFocused(true)}
+                      onBlur={() => setNewPatientAppointmentTimeFocused(false)}
+                      onChange={(e) => setNewPatient((p) => ({ ...p, appointmentTime: e.target.value }))}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Open appointment time picker"
+                      onClick={() => openTimePicker(newPatientAppointmentTimeInputRef)}
+                      className="absolute right-3 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/70 text-[#3A7BD5] shadow-[0_8px_20px_rgba(58,123,213,0.14)] transition hover:bg-white"
+                    >
+                      <Clock3 className="h-4 w-4" />
+                    </button>
+                  </label>
+                  <select
+                    className="glass-input"
+                    value={newPatient.appointmentStatus}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, appointmentStatus: e.target.value }))}
+                  >
+                    <option value="">Appointment Status</option>
+                    <option value="BOOKED">BOOKED</option>
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                    <option value="NO_SHOW">NO_SHOW</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10080"
+                    className="glass-input"
+                    placeholder="Appointment Reminder (mins)"
+                    value={newPatient.appointmentReminderMinutes}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, appointmentReminderMinutes: e.target.value }))}
+                  />
+                  <input
+                    type="number"
+                    className="glass-input"
+                    placeholder="Height (cm) optional"
+                    value={newPatient.height}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, height: e.target.value }))}
+                  />
+                  <input
+                    type="number"
+                    className="glass-input"
+                    placeholder="Weight (kg) optional"
+                    value={newPatient.weight}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, weight: e.target.value }))}
+                  />
+                  <div className="flex items-end">
+                    <button className="button-glass w-full">
+                      Create
+                    </button>
+                  </div>
+                </form>
+
+                <div className="glass-well section-chroma-soft max-h-[34rem] overflow-y-auto p-3">
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {(patients || []).map((patient) => (
+                      <article
+                        key={patient.id}
+                        className={`patient-card group ${
+                          selectedPatientId === patient.id
+                            ? 'patient-card-selected'
+                            : ''
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isReceptionist) {
+                              setSelectedPatientId(patient.id)
+                              return
+                            }
+                            navigate(`/patients/${patient.id}`)
+                          }}
+                          className="w-full text-left"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="patient-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-[11px] font-semibold tracking-wide text-white">
+                              {patientInitials(patient.name)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-[13px] font-semibold text-[#1D2D50]">{patient.name}</p>
+                                <span className="patient-id-badge shrink-0">
+                                  #{resolvePatientNumber(patient)}
+                                </span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                                <UserRound className="h-3.5 w-3.5" />
+                                {patient.gender} • {patient.age}y
+                              </div>
+                            </div>
+                          </div>
+                          <div className="patient-meta mt-3 grid grid-cols-[1fr,auto] items-center gap-2 rounded-[20px] px-3 py-2.5">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                                <Clock3 className="h-3.5 w-3.5 text-[#3A7BD5]" />
+                                Last visit
+                              </div>
+                              <p className="mt-1 truncate text-[13px] font-semibold text-[#1D2D50]">
+                                {selectedPatientId === patient.id ? formatDisplayDate(prescriptionHistory[0]?.visitDate) : 'Pending'}
+                              </p>
+                            </div>
+                            {patient.appointmentDate && (
+                              <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-[0.08em] text-cyan-700">Appointment</p>
+                                <p className="text-[11px] font-semibold text-[#24539a]">
+                                  {formatAppointmentLabel(patient.appointmentDate, patient.appointmentTime)}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </button>
+
+                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100/80 pt-2.5">
+                          {!isReceptionist && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/patients/${patient.id}`)}
+                              className="button-action-light patient-card-button"
+                            >
+                              Open
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isReceptionist) {
+                                setSelectedPatientId(patient.id)
+                                return
+                              }
+                              openPrescriptionForPatient(patient.id)
+                            }}
+                            className="button-action-strong patient-card-button min-h-10 rounded-full px-3 py-1 text-[11px] font-medium transition"
+                          >
+                            {selectedPatientId === patient.id ? 'Selected' : isReceptionist ? 'View' : 'Use'}
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  {patients.length === 0 && (
+                    <p className="px-3 py-6 text-center text-sm text-slate-500">No patients found.</p>
+                  )}
+                </div>
+
+                {selectedPatient && (
+                  <div className="glass-well section-chroma-soft p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+                          <ActivitySquare className="h-3.5 w-3.5" />
+                          Selected Patient
+                        </p>
+                        <p className="text-sm font-medium">{selectedPatient.name}</p>
+                      </div>
+                      {!isReceptionist && (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => selectService('prescriptions')}
+                            className="button-glass-secondary min-h-0 px-3 py-1 text-xs"
+                          >
+                            Write Prescription
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/patients/${selectedPatient.id}`)}
+                            className="button-glass-secondary min-h-0 px-3 py-1 text-xs"
+                          >
+                            Open Profile
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      ID: {resolvePatientNumber(selectedPatient)} | Age: {selectedPatient.age} | Gender: {selectedPatient.gender} |
+                      Mobile: {selectedPatient.mobile}
+                    </p>
+                    {(selectedPatient.height || selectedPatient.weight) && (
+                      <p className="mt-1 text-xs text-slate-600">
+                        {selectedPatient.height ? `Height: ${selectedPatient.height} cm` : null}
+                        {selectedPatient.height && selectedPatient.weight ? ' | ' : ''}
+                        {selectedPatient.weight ? `Weight: ${selectedPatient.weight} kg` : null}
+                      </p>
+                    )}
+                    {selectedPatient.appointmentDate && (
+                      <p className="mt-1 text-xs text-slate-600">
+                        Appointment: {formatAppointmentLabel(selectedPatient.appointmentDate, selectedPatient.appointmentTime)}
+                      </p>
+                    )}
+                    {(selectedPatient.appointmentStatus || selectedPatient.appointmentReminderMinutes != null) && (
+                      <p className="mt-1 text-xs text-slate-600">
+                        Status: {selectedPatient.appointmentStatus || 'BOOKED'}
+                        {selectedPatient.appointmentReminderMinutes != null
+                          ? ` | Reminder: ${selectedPatient.appointmentReminderMinutes} min before`
+                          : ''}
+                      </p>
+                    )}
+                    <p className="mt-2 text-xs text-slate-600">
+                      Previous Prescriptions: {prescriptionHistory.length}
+                    </p>
+                    {selectedPatient.appointmentDate && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {!isReceptionist && (
+                          <button
+                            type="button"
+                            onClick={() => connectAndSyncGoogleCalendar(selectedPatient)}
+                            className="button-glass-secondary min-h-0 px-3 py-1 text-xs"
+                          >
+                            Google Calendar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => downloadCalendarInvite(selectedPatient.id)}
+                          className="button-glass-secondary min-h-0 px-3 py-1 text-xs"
+                        >
+                          iPhone Calendar (.ics)
+                        </button>
+                      </div>
+                    )}
+                    <div className="mt-2 max-h-36 overflow-y-auto space-y-1 text-xs">
+                      {prescriptionHistory.map((p) => (
+                        <div key={p.id} className="glass-well rounded-xl px-2 py-1.5">
+                          {p.visitDate}: {p.diagnosis}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeService === 'appointments' && !isReceptionist && (
+              <section className="glass-panel-strong section-chroma p-4 sm:p-5">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                  <div>
+                    <p className="glass-kicker">Appointment Desk</p>
+                    <h2 className="glass-heading text-xl font-semibold">Calendar and reminder timeline</h2>
+                  </div>
+                  <p className="glass-pill text-slate-600">
+                    Connected to patient appointments and prescription follow-ups
+                  </p>
+                </div>
+                {renderAppointmentsPanel()}
+              </section>
+            )}
+
+            {activeService === 'prescriptions' && (
+              <section className="glass-panel-strong section-chroma p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                  <div>
+                    <p className="glass-kicker">Prescription Studio</p>
+                    <h2 className="glass-heading text-xl font-semibold">Build and export a clean prescription</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedPatient ? (
+                      <span className="glass-pill text-cyan-800">
+                        Patient: {selectedPatient.name} #{resolvePatientNumber(selectedPatient)}
+                      </span>
+                    ) : (
+                      <span className="glass-pill text-amber-700">
+                        No patient selected
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => selectService('patients')}
+                      className="button-glass-secondary min-h-0 px-3 py-1 text-xs"
+                    >
+                      Open Patients
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <label className="glass-pill gap-2 rounded-full px-3 py-2">
+                      <input
+                        type="radio"
+                        checked={prescriptionMode === 'PATIENT'}
+                        onChange={() => setPrescriptionMode('PATIENT')}
+                      />
+                      Patient-Based
+                    </label>
+                    <label className="glass-pill gap-2 rounded-full px-3 py-2">
+                      <input
+                        type="radio"
+                        checked={prescriptionMode === 'QUICK'}
+                        onChange={() => setPrescriptionMode('QUICK')}
+                      />
+                      Quick Prescription
+                    </label>
+                  </div>
+
+                  <form onSubmit={submitPrescription} className="mt-4 space-y-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <input
+                        className="glass-input"
+                        placeholder="Diagnosis"
+                        value={diagnosis}
+                        onChange={(e) => setDiagnosis(e.target.value)}
+                      />
+                      <input
+                        className="glass-input"
+                        placeholder="BP"
+                        value={bp}
+                        onChange={(e) => setBp(e.target.value)}
+                      />
+                      <input
+                        className="glass-input"
+                        placeholder="Sugar"
+                        value={sugar}
+                        onChange={(e) => setSugar(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr),minmax(240px,320px)]">
+                      <label className="glass-well flex items-center justify-between gap-3 px-4 py-3 text-sm text-slate-700">
+                        <div>
+                          <p className="font-medium text-slate-900">Clinical Notes</p>
+                          <p className="text-xs text-slate-500">Keep the prescription compact unless you want to add notes.</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={showClinicalNotes}
+                          onChange={(e) => setShowClinicalNotes(e.target.checked)}
+                        />
+                      </label>
+                      <label className="glass-well flex flex-col justify-center px-4 py-3 shadow-sm">
+                        <span className="text-xs font-medium text-slate-600">Follow up date</span>
+                        <input
+                          type="date"
+                          className="glass-input mt-1 px-3 py-2"
+                          aria-label="Follow up date"
+                          title="Follow up date"
+                          value={followUpDate}
+                          onChange={(e) => setFollowUpDate(e.target.value)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="glass-well section-chroma-soft p-4">
+                      {showClinicalNotes ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            <textarea
+                              className="glass-textarea px-3 py-2"
+                              placeholder="Complaints"
+                              rows={3}
+                              value={complaints}
+                              onChange={(e) => setComplaints(e.target.value)}
+                            />
+                            <textarea
+                              className="glass-textarea px-3 py-2"
+                              placeholder="Examination"
+                              rows={3}
+                              value={examination}
+                              onChange={(e) => setExamination(e.target.value)}
+                            />
+                            <textarea
+                              className="glass-textarea md:col-span-2 px-3 py-2"
+                              placeholder="Investigation Advice"
+                              rows={3}
+                              value={investigationAdvice}
+                              onChange={(e) => setInvestigationAdvice(e.target.value)}
+                            />
+                            <textarea
+                              className="glass-textarea md:col-span-2 px-3 py-2"
+                              placeholder="Treatment"
+                              rows={3}
+                              value={treatment}
+                              onChange={(e) => setTreatment(e.target.value)}
+                            />
+                            <input
+                              className="glass-input px-3 py-2"
+                              placeholder="Advice"
+                              value={advice}
+                              onChange={(e) => setAdvice(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-slate-700">X-Ray Upload</label>
+                            <input
+                              type="file"
+                              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                              className="glass-input"
+                              onChange={(e) => uploadXray(e.target.files?.[0])}
+                            />
+                            {xrayUploading && <p className="text-xs text-slate-500">Uploading x-ray...</p>}
+                            {xrayImageUrl && (
+                              <div className="space-y-2">
+                                <img
+                                  src={xrayImageUrl}
+                                  alt="X-ray preview"
+                                  className="max-h-48 rounded-[22px] border border-white/60 bg-white/75 object-contain"
+                                />
+                                <p className="break-all text-xs text-slate-500">{xrayImageUrl}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[220px,1fr]">
+                      <div className="space-y-1">
+                        <label htmlFor="medicine-type" className="text-sm font-medium text-slate-700">
+                          Medicine Type
+                        </label>
+                        <select
+                          id="medicine-type"
+                          className="glass-input"
+                          value={selectedMedicineType}
+                          onChange={(e) => handleMedicineTypeChange(e.target.value)}
+                        >
+                          {medicineTypeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="glass-well section-chroma-soft space-y-4 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Medicine Builder</p>
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              Add {medicineTypeOptions.find((option) => option.value === selectedMedicineType)?.label}
+                            </h3>
+                          </div>
+                          {medicineDraft.scheduleType === 'WEEKLY' && (
+                            <span className="glass-pill text-cyan-800">
+                              Weekly plan: {medicineDraft.weeklyDays.length || 0} day(s) selected
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <AutocompleteInput
+                            value={medicineDraft.brand}
+                            placeholder={`${selectedMedicineType} Brand`}
+                            suggestions={suggestions[brandSuggestionKey] || []}
+                            onChange={(value) => {
+                              updateMedicineDraft('brand', value)
+                              fetchMedicineSuggestions(selectedMedicineType, brandSuggestionKey, value, 'brand')
+                            }}
+                            onSelect={(value) => {
+                              updateMedicineDraft('brand', value)
+                              setSuggestions((prev) => ({ ...prev, [brandSuggestionKey]: [] }))
+                            }}
+                          />
+                          <AutocompleteInput
+                            value={medicineDraft[getMedicineNameField(selectedMedicineType)] || ''}
+                            placeholder={`${selectedMedicineType} Name`}
+                            suggestions={suggestions[nameSuggestionKey] || []}
+                            onChange={(value) => {
+                              updateMedicineDraft(getMedicineNameField(selectedMedicineType), value)
+                              fetchMedicineSuggestions(selectedMedicineType, nameSuggestionKey, value, 'name')
+                            }}
+                            onSelect={(value) => {
+                              updateMedicineDraft(getMedicineNameField(selectedMedicineType), value)
+                              setSuggestions((prev) => ({ ...prev, [nameSuggestionKey]: [] }))
+                            }}
+                          />
+                        </div>
+
+                        {selectedMedicineType === 'TABLET' && (
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.morning)}
+                                  onChange={(e) => updateMedicineDraft('morning', e.target.checked)}
+                                />
+                                Morning
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.afternoon)}
+                                  onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)}
+                                />
+                                Afternoon
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.night)}
+                                  onChange={(e) => updateMedicineDraft('night', e.target.checked)}
+                                />
+                                Night
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.withWater)}
+                                  onChange={(e) => updateMedicineDraft('withWater', e.target.checked)}
+                                />
+                                With water
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.chew)}
+                                  onChange={(e) => updateMedicineDraft('chew', e.target.checked)}
+                                />
+                                Chew
+                              </label>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,160px)_minmax(0,1fr)_minmax(0,1fr)]">
+                              <select
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.scheduleType || 'DAILY'}
+                                onChange={(e) => updateMedicineSchedule(e.target.value)}
+                              >
+                                <option value="DAILY">Daily</option>
+                                <option value="WEEKLY">Weekly</option>
+                              </select>
+                              <input
+                                type="number"
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.duration ?? ''}
+                                onChange={(e) =>
+                                  updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
+                              />
+                              <input
+                                type="number"
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.quantity ?? ''}
+                                onChange={(e) =>
+                                  updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                placeholder="Quantity"
+                              />
+                            </div>
+                            {medicineDraft.scheduleType === 'WEEKLY' && (
+                              <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
+                            )}
+                            <div className="grid grid-cols-1 gap-2">
+                              <select
+                                className="glass-input w-full px-3 py-2 md:max-w-[220px]"
+                                value={medicineDraft.instruction || 'AFTER_FOOD'}
+                                onChange={(e) => updateMedicineDraft('instruction', e.target.value)}
+                              >
+                                <option value="AFTER_FOOD">After Food</option>
+                                <option value="BEFORE_FOOD">Before Food</option>
+                                <option value="EMPTY_STOMACH">Empty Stomach</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedMedicineType === 'SYRUP' && (
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.morning)}
+                                  onChange={(e) => updateMedicineDraft('morning', e.target.checked)}
+                                />
+                                Morning
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.afternoon)}
+                                  onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)}
+                                />
+                                Afternoon
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(medicineDraft.night)}
+                                  onChange={(e) => updateMedicineDraft('night', e.target.checked)}
+                                />
+                                Night
+                              </label>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,160px)_minmax(0,1fr)_minmax(0,1fr)]">
+                              <select
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.scheduleType || 'DAILY'}
+                                onChange={(e) => updateMedicineSchedule(e.target.value)}
+                              >
+                                <option value="DAILY">Daily</option>
+                                <option value="WEEKLY">Weekly</option>
+                              </select>
+                              <input
+                                type="number"
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.duration ?? ''}
+                                onChange={(e) =>
+                                  updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
+                              />
+                              <input
+                                type="number"
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.quantity ?? ''}
+                                onChange={(e) =>
+                                  updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                placeholder="Quantity (ml)"
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
+                              <select
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.intakeType || 'TEASPOON'}
+                                onChange={(e) => updateMedicineDraft('intakeType', e.target.value)}
+                              >
+                                <option value="TEASPOON">Teaspoon</option>
+                                <option value="QUANTITY_PER_INTAKE">Quantity (per intake)</option>
+                              </select>
+                              <input
+                                type="number"
+                                min="1"
+                                className="glass-input px-3 py-2"
+                                value={medicineDraft.intakeValue ?? ''}
+                                onChange={(e) => updateMedicineDraft('intakeValue', e.target.value)}
+                                placeholder={
+                                  medicineDraft.intakeType === 'QUANTITY_PER_INTAKE'
+                                    ? 'Quantity per intake (ml)'
+                                    : 'Teaspoon count'
+                                }
+                              />
+                            </div>
+                            {medicineDraft.scheduleType === 'WEEKLY' && (
+                              <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
+                            )}
+                          </div>
+                        )}
+
+                        {selectedMedicineType === 'INJECTION' && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                              <label className="flex flex-col gap-1 text-sm text-slate-700">
+                                <span className="text-xs font-medium text-slate-600">Schedule</span>
+                                <select
+                                  className="glass-input px-3 py-2"
+                                  value={medicineDraft.scheduleType || 'DAILY'}
+                                  onChange={(e) => updateMedicineSchedule(e.target.value)}
+                                >
+                                  <option value="DAILY">Daily</option>
+                                  <option value="WEEKLY">Weekly</option>
+                                </select>
+                              </label>
+                            </div>
+
+                            {medicineDraft.scheduleType === 'WEEKLY' && (
+                              <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={addMedicine}
+                            className="button-glass px-4 py-2"
+                          >
+                            Add Medicine
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                      <MedicineList
+                        title="Tablets"
+                        items={tablets}
+                        type="TABLET"
+                        onRemove={(index) => removeMedicine('TABLET', index)}
+                      />
+                      <MedicineList
+                        title="Syrups"
+                        items={syrups}
+                        type="SYRUP"
+                        onRemove={(index) => removeMedicine('SYRUP', index)}
+                      />
+                      <MedicineList
+                        title="Injections"
+                        items={injections}
+                        type="INJECTION"
+                        onRemove={(index) => removeMedicine('INJECTION', index)}
+                      />
+                    </div>
+
+                    <div className="glass-well section-chroma-soft p-4">
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(240px,300px),1fr] lg:items-end">
+                        <label className="flex flex-col gap-1">
+                          <span className="text-xs font-medium text-slate-600">Consultation Fee</span>
+                          <input
+                            type="number"
+                            className="glass-input"
+                            placeholder="Consultation Fee"
+                            value={consultationFee}
+                            onChange={(e) => setConsultationFee(e.target.value)}
+                          />
+                        </label>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                          <label className="glass-well flex items-center justify-between gap-3 px-4 py-3 text-sm text-slate-700 sm:min-w-[280px]">
+                            <div>
+                              <p className="font-medium text-slate-900">Show Doctor Details</p>
+                              <p className="text-xs text-slate-500">
+                                Print logo, doctor, clinic, address, phone, and email in the PDF header.
+                              </p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={showDoctorDetails}
+                              onChange={(e) => setShowDoctorDetails(e.target.checked)}
+                            />
+                          </label>
+                          <button className="button-glass px-4 py-3">
+                            Save Prescription & Download PDF
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </section>
             )}
           </div>
         </div>
-
-        <section className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
-          <h2 className="text-lg font-semibold">Prescription</h2>
-          <div className="flex gap-3 text-sm">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={prescriptionMode === 'PATIENT'}
-                onChange={() => setPrescriptionMode('PATIENT')}
-              />
-              Patient-Based
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={prescriptionMode === 'QUICK'}
-                onChange={() => setPrescriptionMode('QUICK')}
-              />
-              Quick Prescription
-            </label>
-          </div>
-
-          <form onSubmit={submitPrescription} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <input
-                className="rounded border px-3 py-2 text-sm"
-                placeholder="Diagnosis"
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-              />
-              <input
-                className="rounded border px-3 py-2 text-sm"
-                placeholder="Advice"
-                value={advice}
-                onChange={(e) => setAdvice(e.target.value)}
-              />
-              <input
-                type="number"
-                className="rounded border px-3 py-2 text-sm"
-                placeholder="Consultation Fee"
-                value={consultationFee}
-                onChange={(e) => setConsultationFee(e.target.value)}
-              />
-            </div>
-
-            <MedicineSection
-              title="Tablets"
-              items={tablets}
-              onAdd={() => setTablets((prev) => [...prev, { ...emptyTablet }])}
-              onRemove={(idx) => setTablets((prev) => prev.filter((_, i) => i !== idx))}
-              renderItem={(row, index) => (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                    <AutocompleteInput
-                      value={row.brand}
-                      placeholder="Tablet Brand"
-                      suggestions={suggestions[`tablet-brand-${index}`] || []}
-                      onChange={(value) => {
-                        onTabletChange(index, 'brand', value)
-                        fetchMedicineSuggestions('TABLET', `tablet-brand-${index}`, value, 'brand')
-                      }}
-                      onSelect={(value) => {
-                        onTabletChange(index, 'brand', value)
-                        setSuggestions((prev) => ({ ...prev, [`tablet-brand-${index}`]: [] }))
-                      }}
-                    />
-                    <AutocompleteInput
-                      value={row.medicineName}
-                      placeholder="Tablet Name"
-                      suggestions={suggestions[`tablet-name-${index}`] || []}
-                      onChange={(value) => {
-                        onTabletChange(index, 'medicineName', value)
-                        fetchMedicineSuggestions('TABLET', `tablet-name-${index}`, value, 'name')
-                      }}
-                      onSelect={(value) => {
-                        onTabletChange(index, 'medicineName', value)
-                        setSuggestions((prev) => ({ ...prev, [`tablet-name-${index}`]: [] }))
-                      }}
-                    />
-                    <input
-                      type="number"
-                      className="rounded border px-2 py-2 text-sm"
-                      value={row.duration}
-                      onChange={(e) =>
-                        onTabletChange(
-                          index,
-                          'duration',
-                          e.target.value === '' ? '' : Number(e.target.value)
-                        )
-                      }
-                      placeholder="Duration (days)"
-                    />
-                    <input
-                      type="number"
-                      className="rounded border px-2 py-2 text-sm"
-                      value={row.quantity}
-                      onChange={(e) =>
-                        onTabletChange(
-                          index,
-                          'quantity',
-                          e.target.value === '' ? '' : Number(e.target.value)
-                        )
-                      }
-                      placeholder="Quantity (tablets)"
-                    />
-                    <select
-                      className="rounded border px-2 py-2 text-sm"
-                      value={row.instruction}
-                      onChange={(e) => onTabletChange(index, 'instruction', e.target.value)}
-                    >
-                      <option value="BEFORE_FOOD">Before Food</option>
-                      <option value="AFTER_FOOD">After Food</option>
-                      <option value="EMPTY_STOMACH">Empty Stomach</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.morning}
-                        onChange={(e) => onTabletChange(index, 'morning', e.target.checked)}
-                      />
-                      Morning
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.afternoon}
-                        onChange={(e) => onTabletChange(index, 'afternoon', e.target.checked)}
-                      />
-                      Afternoon
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.night}
-                        onChange={(e) => onTabletChange(index, 'night', e.target.checked)}
-                      />
-                      Night
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.withWater}
-                        onChange={(e) => onTabletChange(index, 'withWater', e.target.checked)}
-                      />
-                      With Water
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.chew}
-                        onChange={(e) => onTabletChange(index, 'chew', e.target.checked)}
-                      />
-                      Chew
-                    </label>
-                  </div>
-                </div>
-              )}
-            />
-
-            <MedicineSection
-              title="Syrups"
-              items={syrups}
-              onAdd={() => setSyrups((prev) => [...prev, { ...emptySyrup }])}
-              onRemove={(idx) => setSyrups((prev) => prev.filter((_, i) => i !== idx))}
-              renderItem={(row, index) => (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                    <AutocompleteInput
-                      value={row.brand}
-                      placeholder="Syrup Brand"
-                      suggestions={suggestions[`syrup-brand-${index}`] || []}
-                      onChange={(value) => {
-                        onSyrupChange(index, 'brand', value)
-                        fetchMedicineSuggestions('SYRUP', `syrup-brand-${index}`, value, 'brand')
-                      }}
-                      onSelect={(value) => {
-                        onSyrupChange(index, 'brand', value)
-                        setSuggestions((prev) => ({ ...prev, [`syrup-brand-${index}`]: [] }))
-                      }}
-                    />
-                    <AutocompleteInput
-                      value={row.syrupName}
-                      placeholder="Syrup Name"
-                      suggestions={suggestions[`syrup-name-${index}`] || []}
-                      onChange={(value) => {
-                        onSyrupChange(index, 'syrupName', value)
-                        fetchMedicineSuggestions('SYRUP', `syrup-name-${index}`, value, 'name')
-                      }}
-                      onSelect={(value) => {
-                        onSyrupChange(index, 'syrupName', value)
-                        setSuggestions((prev) => ({ ...prev, [`syrup-name-${index}`]: [] }))
-                      }}
-                    />
-                    <input
-                      type="number"
-                      className="rounded border px-2 py-2 text-sm"
-                      value={row.duration}
-                      onChange={(e) =>
-                        onSyrupChange(
-                          index,
-                          'duration',
-                          e.target.value === '' ? '' : Number(e.target.value)
-                        )
-                      }
-                      placeholder="Duration (days)"
-                    />
-                    <input
-                      type="number"
-                      className="rounded border px-2 py-2 text-sm"
-                      value={row.quantity}
-                      onChange={(e) =>
-                        onSyrupChange(
-                          index,
-                          'quantity',
-                          e.target.value === '' ? '' : Number(e.target.value)
-                        )
-                      }
-                      placeholder="Quantity (ml)"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.morning}
-                        onChange={(e) => onSyrupChange(index, 'morning', e.target.checked)}
-                      />
-                      Morning
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.afternoon}
-                        onChange={(e) => onSyrupChange(index, 'afternoon', e.target.checked)}
-                      />
-                      Afternoon
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.night}
-                        onChange={(e) => onSyrupChange(index, 'night', e.target.checked)}
-                      />
-                      Night
-                    </label>
-                  </div>
-                </div>
-              )}
-            />
-
-            <MedicineSection
-              title="Injections"
-              items={injections}
-              onAdd={() => setInjections((prev) => [...prev, { ...emptyInjection }])}
-              onRemove={(idx) => setInjections((prev) => prev.filter((_, i) => i !== idx))}
-              renderItem={(row, index) => (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <AutocompleteInput
-                      value={row.brand}
-                      placeholder="Injection Brand"
-                      suggestions={suggestions[`inj-brand-${index}`] || []}
-                      onChange={(value) => {
-                        onInjectionChange(index, 'brand', value)
-                        fetchMedicineSuggestions('INJECTION', `inj-brand-${index}`, value, 'brand')
-                      }}
-                      onSelect={(value) => {
-                        onInjectionChange(index, 'brand', value)
-                        setSuggestions((prev) => ({ ...prev, [`inj-brand-${index}`]: [] }))
-                      }}
-                    />
-                    <AutocompleteInput
-                      value={row.medicineName}
-                      placeholder="Injection Name"
-                      suggestions={suggestions[`inj-name-${index}`] || []}
-                      onChange={(value) => {
-                        onInjectionChange(index, 'medicineName', value)
-                        fetchMedicineSuggestions('INJECTION', `inj-name-${index}`, value, 'name')
-                      }}
-                      onSelect={(value) => {
-                        onInjectionChange(index, 'medicineName', value)
-                        setSuggestions((prev) => ({ ...prev, [`inj-name-${index}`]: [] }))
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.daily}
-                        onChange={(e) => onInjectionChange(index, 'daily', e.target.checked)}
-                      />
-                      Daily
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.alternateDay}
-                        onChange={(e) => onInjectionChange(index, 'alternateDay', e.target.checked)}
-                      />
-                      Alternate Day
-                    </label>
-                    <label className="inline-flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={row.weeklyOnce}
-                        onChange={(e) => onInjectionChange(index, 'weeklyOnce', e.target.checked)}
-                      />
-                      Weekly Once
-                    </label>
-                  </div>
-                </div>
-              )}
-            />
-
-            <button className="rounded bg-indigo-600 text-white px-4 py-2 text-sm">
-              Save Prescription & Download PDF
-            </button>
-          </form>
-        </section>
       </section>
     </main>
   )
 }
 
-function MedicineSection({ title, items, onAdd, onRemove, renderItem }) {
+function MedicineList({ title, items, type, onRemove }) {
   return (
-    <div className="rounded border p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm">{title}</h3>
-        <button type="button" onClick={onAdd} className="text-xs px-2 py-1 rounded border">
-          + Add
-        </button>
-      </div>
-      {items.length === 0 && <p className="text-xs text-slate-500">No entries</p>}
+    <div className="glass-well space-y-2 p-3">
+      <h3 className="text-sm font-medium text-slate-900">{title}</h3>
+      {items.length === 0 && <p className="text-xs text-slate-500">No medicines added.</p>}
       {items.map((item, index) => (
-        <div key={`${title}-${index}`} className="rounded border p-2 space-y-2">
-          {renderItem(item, index)}
+        <div key={`${title}-${index}`} className="glass-well rounded-xl p-3 space-y-2">
+          <p className="text-sm text-slate-700">{summarizeMedicine(type, item)}</p>
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="text-xs rounded border px-2 py-1 text-red-700"
+            className="button-glass-danger min-h-0 rounded-lg px-2 py-1 text-xs"
           >
             Remove
           </button>
         </div>
       ))}
+    </div>
+  )
+}
+
+function WeekdaySelector({ selectedDays, onToggle }) {
+  return (
+    <div className="glass-well rounded-xl p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-800">Weekly Days</p>
+        <p className="text-[11px] text-slate-500">Choose the exact days to store and print in the PDF.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {weekDayOptions.map((day) => {
+          const selected = selectedDays.includes(day)
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => onToggle(day)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                selected
+                  ? 'border-[#1173dd] bg-[#1173dd] text-white shadow-sm'
+                  : 'border-white/70 bg-white/72 text-slate-700 hover:border-cyan-300 hover:text-cyan-800'
+              }`}
+            >
+              {formatWeeklyDay(day)}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -899,7 +2319,7 @@ function AutocompleteInput({ value, onChange, onSelect, suggestions, placeholder
   return (
     <div className="relative">
       <input
-        className="w-full rounded border px-2 py-2 text-sm"
+        className="glass-input px-3 py-2"
         value={value}
         placeholder={placeholder}
         onChange={(e) => {
@@ -910,7 +2330,7 @@ function AutocompleteInput({ value, onChange, onSelect, suggestions, placeholder
         onBlur={() => setTimeout(() => setIsOpen(false), 120)}
       />
       {isOpen && filteredSuggestions.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full rounded border bg-white shadow max-h-40 overflow-y-auto">
+        <div className="glass-panel absolute z-20 mt-1 max-h-40 w-full overflow-y-auto rounded-[22px] p-1">
           {filteredSuggestions.map((item) => (
             <button
               key={`${placeholder}-${item}`}
@@ -920,7 +2340,7 @@ function AutocompleteInput({ value, onChange, onSelect, suggestions, placeholder
                 onSelect(item)
                 setIsOpen(false)
               }}
-              className="w-full text-left px-2 py-1 text-xs hover:bg-slate-100 border-b last:border-b-0"
+              className="w-full rounded-2xl border-b border-white/40 px-2 py-2 text-left text-xs hover:bg-white/60 last:border-b-0"
             >
               {item}
             </button>

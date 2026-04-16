@@ -8,12 +8,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
@@ -39,23 +40,36 @@ public class JwtFilter extends OncePerRequestFilter {
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 String username = jwtUtil.extractUsername(token);
+                String role = jwtUtil.extractRole(token);
+                Long doctorId = jwtUtil.extractDoctorId(token);
 
-                // 🔥 FIX: Add ROLE
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 username,
                                 null,
-                                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                                role == null || role.isBlank()
+                                        ? List.of()
+                                        : List.of(new SimpleGrantedAuthority(role))
                         );
 
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                authentication.setDetails(buildAuthenticationDetails(request, role, doctorId));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private Map<String, Object> buildAuthenticationDetails(
+            HttpServletRequest request,
+            String role,
+            Long doctorId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("remoteAddress", request.getRemoteAddr());
+        details.put("sessionId", request.getRequestedSessionId());
+        details.put("role", role);
+        details.put("doctorId", doctorId);
+        return details;
     }
 }

@@ -1,10 +1,10 @@
-package com.escriptpro.patient_service;
+package com.escriptpro.receptionist_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class PatientServiceApplicationTests {
+class ReceptionistServiceApplicationTests {
 
 	@Test
 	void contextLoads() {

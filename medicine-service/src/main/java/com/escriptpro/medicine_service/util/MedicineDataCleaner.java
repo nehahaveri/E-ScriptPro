@@ -28,6 +28,12 @@ public class MedicineDataCleaner {
 
     public static void cleanData() throws IOException {
         Path inputPath = resolveInputPath();
+        
+        // Skip if raw data file doesn't exist (e.g., in Docker container)
+        if (!Files.exists(inputPath)) {
+            return;
+        }
+        
         Path outputPath = resolveOutputPath();
 
         try (BufferedReader reader = Files.newBufferedReader(inputPath, StandardCharsets.UTF_8);

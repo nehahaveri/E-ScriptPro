@@ -11,17 +11,29 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     List<Patient> findByDoctorId(Long doctorId);
 
+    List<Patient> findByDoctorIdOrderByIdAsc(Long doctorId);
+
+    List<Patient> findByDoctorIdOrderByPatientNumberAsc(Long doctorId);
+
     Optional<Patient> findByIdAndDoctorId(Long id, Long doctorId);
+
+    Optional<Patient> findByPatientNumberAndDoctorId(Long patientNumber, Long doctorId);
+
+    Optional<Patient> findTopByDoctorIdOrderByPatientNumberDesc(Long doctorId);
+
+    List<Patient> findByDoctorIdAndAppointmentDateOrderByPatientNumberAsc(Long doctorId, String appointmentDate);
 
     @Query("""
             SELECT p
             FROM Patient p
             WHERE p.doctorId = :doctorId
               AND (
+                    STR(p.patientNumber) LIKE CONCAT('%', :query, '%')
+                    OR
                     LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(p.mobile) LIKE LOWER(CONCAT('%', :query, '%'))
                   )
-            ORDER BY p.name ASC
+            ORDER BY p.patientNumber ASC, p.name ASC
             """)
     List<Patient> searchByDoctorId(@Param("doctorId") Long doctorId, @Param("query") String query);
 }

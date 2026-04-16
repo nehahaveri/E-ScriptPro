@@ -6,19 +6,32 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import javax.crypto.SecretKey;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class JwtUtil {
 
-    private static final String SECRET =
-            "escriptpro-authservice-jwt-secret-key-for-development-only-2026";
+    private static final String DEFAULT_SECRET =
+            "escriptpro-authservice-jwt-secret-key-for-development-only-2026-escriptpro-secure";
 
-    private final SecretKey key =
-            Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+    private final SecretKey key;
+
+    public JwtUtil(@Value("${jwt.secret:" + DEFAULT_SECRET + "}") String secret) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    public Long extractDoctorId(String token) {
+        Number doctorId = extractAllClaims(token).get("doctorId", Number.class);
+        return doctorId == null ? null : doctorId.longValue();
+    }
+
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
     }
 
     public boolean validateToken(String token) {

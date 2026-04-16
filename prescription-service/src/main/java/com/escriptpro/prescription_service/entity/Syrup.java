@@ -36,6 +36,14 @@ public class Syrup {
 
     private Boolean night;
 
+    private String scheduleType;
+
+    private String weeklyDays;
+
+    private String intakeType;
+
+    private Integer intakeValue;
+
     private Integer duration;
 
     private Integer quantity;

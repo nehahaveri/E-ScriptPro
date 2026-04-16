@@ -1,5 +1,7 @@
 package com.escriptpro.pdf_service.dto;
 
+import java.util.List;
+
 public class InjectionDTO {
 
     private String brand;
@@ -7,6 +9,8 @@ public class InjectionDTO {
     private Boolean daily;
     private Boolean alternateDay;
     private Boolean weeklyOnce;
+    private String scheduleType;
+    private List<String> weeklyDays;
 
     public String getBrand() {
         return brand;
@@ -46,5 +50,21 @@ public class InjectionDTO {
 
     public void setWeeklyOnce(Boolean weeklyOnce) {
         this.weeklyOnce = weeklyOnce;
+    }
+
+    public String getScheduleType() {
+        return scheduleType;
+    }
+
+    public void setScheduleType(String scheduleType) {
+        this.scheduleType = scheduleType;
+    }
+
+    public List<String> getWeeklyDays() {
+        return weeklyDays;
+    }
+
+    public void setWeeklyDays(List<String> weeklyDays) {
+        this.weeklyDays = weeklyDays;
     }
 }
