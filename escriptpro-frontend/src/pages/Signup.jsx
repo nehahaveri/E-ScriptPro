@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Apple, ArrowRight, BriefcaseMedical } from 'lucide-react'
+import { ArrowRight, BriefcaseMedical, Eye, EyeOff, Hash, KeyRound, Mail, Phone, Stethoscope, User, UserCog } from 'lucide-react'
 import api from '../services/api'
 
 function Signup() {
@@ -14,6 +14,7 @@ function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -90,86 +91,92 @@ function Signup() {
         <div className="auth-header-row">
           <p className="auth-kicker">New Practice</p>
           <span className="auth-icon-badge">
-            <BriefcaseMedical className="h-5 w-5" />
+            <BriefcaseMedical className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
         </div>
-        <h1 className="auth-title">{selectedRole === 'RECEPTIONIST' ? 'Receptionist Signup' : 'Doctor Signup'}</h1>
-        <p className="auth-copy">
+        <h1 className="auth-title text-xl sm:text-2xl md:text-[1.8rem]">
+          {selectedRole === 'RECEPTIONIST' ? 'Receptionist Signup' : 'Doctor Signup'}
+        </h1>
+        <p className="auth-copy text-xs sm:text-sm">
           {selectedRole === 'RECEPTIONIST'
             ? 'Create a receptionist account linked to the doctor you work with.'
             : 'Create your doctor account.'}
         </p>
 
-        <button type="button" className="button-secondary auth-apple-button w-full justify-between">
-          <span className="inline-flex items-center gap-3">
-            <Apple className="h-5 w-5" />
-            Sign up with Apple
-          </span>
-          <ArrowRight className="h-4 w-4" />
-        </button>
-
         <form onSubmit={handleSubmit} className="auth-form">
           <div>
-            <label className="field-label">Sign Up As</label>
+            <label className="field-label text-xs">Sign Up As</label>
             <div className="grid grid-cols-2 gap-2">
               {['DOCTOR', 'RECEPTIONIST'].map((role) => (
                 <button
                   key={role}
                   type="button"
                   onClick={() => setSelectedRole(role)}
-                  className={`rounded-full border px-4 py-3 text-sm font-medium transition ${
+                  className={`flex items-center justify-center gap-2 rounded-full border px-3 py-2.5 text-xs font-medium transition ${
                     selectedRole === role
                       ? 'border-white/45 bg-white/22 text-white'
                       : 'border-white/15 bg-white/8 text-white/70 hover:bg-white/14'
                   }`}
                 >
+                  {role === 'DOCTOR' ? <Stethoscope className="h-3.5 w-3.5" /> : <UserCog className="h-3.5 w-3.5" />}
                   {role === 'DOCTOR' ? 'Doctor' : 'Receptionist'}
                 </button>
               ))}
             </div>
           </div>
 
-          <div>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+              <User className="h-4 w-4" />
+            </span>
             <input
               id="name"
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
-              className="input-luxe"
+              className="input-luxe pl-10 text-sm"
               placeholder={selectedRole === 'RECEPTIONIST' ? 'Receptionist name' : 'Dr. Name'}
             />
           </div>
 
-          <div>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              className="input-luxe"
-              placeholder={selectedRole === 'RECEPTIONIST' ? 'receptionist@example.com' : 'doctor@example.com'}
-            />
-          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <Mail className="h-4 w-4" />
+              </span>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                className="input-luxe pl-10 text-sm"
+                placeholder={selectedRole === 'RECEPTIONIST' ? 'receptionist@email.com' : 'doctor@email.com'}
+              />
+            </div>
 
-          <div>
-            <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              required
-              className="input-luxe"
-              placeholder="9876543210 or +919876543210"
-            />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <Phone className="h-4 w-4" />
+              </span>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                required
+                className="input-luxe pl-10 text-sm"
+                placeholder="9876543210"
+              />
+            </div>
           </div>
 
           {selectedRole === 'RECEPTIONIST' && (
-            <div>
-              <label className="field-label" htmlFor="doctorId">
-                Assigned Doctor ID
-              </label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <Hash className="h-4 w-4" />
+              </span>
               <input
                 id="doctorId"
                 type="number"
@@ -177,48 +184,65 @@ function Signup() {
                 value={doctorId}
                 onChange={(event) => setDoctorId(event.target.value)}
                 required
-                className="input-luxe"
-                placeholder="Enter doctor ID"
+                className="input-luxe pl-10 text-sm"
+                placeholder="Assigned Doctor ID"
               />
             </div>
           )}
 
-          <div>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              className="input-luxe"
-              placeholder="Minimum 12 characters"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <KeyRound className="h-4 w-4" />
+              </span>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                className="input-luxe pl-10 text-sm"
+                placeholder="Min 12 characters"
+              />
+            </div>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <KeyRound className="h-4 w-4" />
+              </span>
+              <input
+                id="confirmPassword"
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                required
+                className="input-luxe pl-10 text-sm"
+                placeholder="Re-enter password"
+              />
+            </div>
           </div>
 
-          <div>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              className="input-luxe"
-              placeholder="Re-enter password"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowPassword((p) => !p)}
+            className="inline-flex items-center gap-1.5 text-xs text-white/60 transition hover:text-white/80"
+          >
+            {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {showPassword ? 'Hide passwords' : 'Show passwords'}
+          </button>
 
-          {error && <p className="alert-error">{error}</p>}
+          {error && <p className="alert-error text-xs">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="button-primary w-full"
+            className="button-primary w-full text-sm"
           >
             {loading ? 'Creating account...' : selectedRole === 'RECEPTIONIST' ? 'Create receptionist account' : 'Sign up'}
+            {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </button>
         </form>
 
-        <p className="mt-5 text-sm text-white/72">
+        <p className="mt-4 text-center text-xs text-white/72">
           Already have an account?{' '}
           <Link to="/" className="font-medium text-white underline underline-offset-4">
             Login
