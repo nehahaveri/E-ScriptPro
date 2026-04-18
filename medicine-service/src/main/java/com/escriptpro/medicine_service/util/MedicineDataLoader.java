@@ -79,6 +79,8 @@ public class MedicineDataLoader implements CommandLineRunner {
                 Medicine medicine = new Medicine();
                 medicine.setName(columns.get(0).trim());
                 medicine.setType(MedicineType.valueOf(columns.get(1).trim()));
+                medicine.setGeneric_name(""); // Default empty string to satisfy constraint
+                medicine.setStrength(""); // Default empty string to satisfy constraint
                 batch.add(medicine);
             }
             medicineRepository.saveAll(batch);
