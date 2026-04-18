@@ -1527,7 +1527,7 @@ function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">E-ScriptPro</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">GP-ScriptPro</p>
               <button onClick={() => setMobileMenuOpen(false)} className="rounded-full p-1.5 text-slate-400 hover:text-slate-600">
                 <X className="h-4 w-4" />
               </button>
@@ -1592,7 +1592,7 @@ function Dashboard() {
             <Menu className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">E-ScriptPro</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">GP-ScriptPro</p>
             <h1 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
               {isReceptionist ? 'Receptionist Dashboard' : 'Dashboard'}
             </h1>
