@@ -37,7 +37,6 @@ public class MedicineDataLoader implements CommandLineRunner {
             return;
         }
 
-        // Detect missing medicine types and reload if needed
         boolean hasMissing = false;
         for (MedicineType type : MedicineType.values()) {
             List<Medicine> sample = medicineRepository.searchAutocompleteByType(
@@ -64,7 +63,7 @@ public class MedicineDataLoader implements CommandLineRunner {
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-            String line = reader.readLine();
+            String line = reader.readLine(); // skip header
             if (line == null) {
                 throw new IOException("Cleaned CSV is empty");
             }
@@ -76,15 +75,41 @@ public class MedicineDataLoader implements CommandLineRunner {
                 List<String> columns = parseCsvLine(line);
                 if (columns.size() < 2) continue;
 
+                String name = unquote(columns.get(0).trim());
+                String typeStr = unquote(columns.get(1).trim());
+
+                MedicineType type;
+                try {
+                    type = MedicineType.valueOf(typeStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    continue; // skip unknown types
+                }
+
                 Medicine medicine = new Medicine();
-                medicine.setName(columns.get(0).trim());
-                medicine.setType(MedicineType.valueOf(columns.get(1).trim()));
-                medicine.setGeneric_name(""); // Default empty string to satisfy constraint
-                medicine.setStrength(""); // Default empty string to satisfy constraint
+                medicine.setName(name);
+                medicine.setType(type);
+                medicine.setGeneric_name("");
+                medicine.setStrength("");
                 batch.add(medicine);
+
+                if (batch.size() >= 1000) {
+                    medicineRepository.saveAll(batch);
+                    batch.clear();
+                }
             }
-            medicineRepository.saveAll(batch);
+            if (!batch.isEmpty()) {
+                medicineRepository.saveAll(batch);
+            }
+            System.out.println("Medicine data loaded successfully.");
         }
+    }
+
+    private String unquote(String value) {
+        if (value == null) return null;
+        if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+            return value.substring(1, value.length() - 1).replace("\"\"", "\"");
+        }
+        return value;
     }
 
     private List<String> parseCsvLine(String line) {
@@ -94,7 +119,6 @@ public class MedicineDataLoader implements CommandLineRunner {
 
         for (int i = 0; i < line.length(); i++) {
             char ch = line.charAt(i);
-
             if (ch == '"') {
                 if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
                     current.append('"');
@@ -109,7 +133,6 @@ public class MedicineDataLoader implements CommandLineRunner {
                 current.append(ch);
             }
         }
-
         values.add(current.toString());
         return values;
     }
