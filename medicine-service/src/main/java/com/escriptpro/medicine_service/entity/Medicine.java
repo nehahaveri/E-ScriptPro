@@ -32,8 +32,12 @@ public class Medicine implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name;
+    private String generic_name;
+
+    private String strength;
 
     @Enumerated(EnumType.STRING)
     private MedicineType type;
+
+    private String name;
 }
