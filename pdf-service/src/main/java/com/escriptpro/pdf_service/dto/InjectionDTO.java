@@ -4,28 +4,19 @@ import java.util.List;
 
 public class InjectionDTO {
 
-    private String brand;
-    private String medicineName;
+    private String name;
     private Boolean daily;
     private Boolean alternateDay;
     private Boolean weeklyOnce;
     private String scheduleType;
     private List<String> weeklyDays;
 
-    public String getBrand() {
-        return brand;
+    public String getName() {
+        return name;
     }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
-
-    public String getMedicineName() {
-        return medicineName;
-    }
-
-    public void setMedicineName(String medicineName) {
-        this.medicineName = medicineName;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Boolean getDaily() {

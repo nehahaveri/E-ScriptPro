@@ -11,9 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TabletDTO {
 
-    private String brand;
-
-    private String medicineName;
+    private String name;
 
     private Boolean morning;
 

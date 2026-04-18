@@ -36,11 +36,10 @@ public class MedicineClient {
         return response.getBody();
     }
 
-    public void registerCustomSuggestion(String type, String brand, String medicineName) {
+    public void registerCustomSuggestion(String type, String name) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", type);
-        payload.put("brand", brand);
-        payload.put("medicineName", medicineName);
+        payload.put("name", name);
 
         restTemplate.exchange(
                 medicineServiceUrl + "/medicines/suggestions/custom",

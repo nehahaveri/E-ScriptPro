@@ -54,12 +54,11 @@ public class MedicineDataLoader implements CommandLineRunner {
                 if (line.isBlank()) continue;
 
                 List<String> columns = parseCsvLine(line);
-                if (columns.size() < 3) continue;
+                if (columns.size() < 2) continue;
 
                 Medicine medicine = new Medicine();
-                medicine.setBrand(columns.get(0).trim());
-                medicine.setMedicineName(columns.get(1).trim());
-                medicine.setType(MedicineType.valueOf(columns.get(2).trim()));
+                medicine.setName(columns.get(0).trim());
+                medicine.setType(MedicineType.valueOf(columns.get(1).trim()));
                 batch.add(medicine);
             }
             medicineRepository.saveAll(batch);

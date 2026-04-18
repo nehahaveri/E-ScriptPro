@@ -33,8 +33,10 @@ public class PrescriptionRequestDTO {
     private Integer consultationFee;
     private Integer fee;
     private List<TabletDTO> tablets;
+    private List<CapsuleDTO> capsules;
     private List<SyrupDTO> syrups;
     private List<InjectionDTO> injections;
+    private List<LotionDTO> lotions;
 
     public Long getPatientId() {
         return patientId;
@@ -268,6 +270,14 @@ public class PrescriptionRequestDTO {
         this.tablets = tablets;
     }
 
+    public List<CapsuleDTO> getCapsules() {
+        return capsules;
+    }
+
+    public void setCapsules(List<CapsuleDTO> capsules) {
+        this.capsules = capsules;
+    }
+
     public List<SyrupDTO> getSyrups() {
         return syrups;
     }
@@ -282,5 +292,13 @@ public class PrescriptionRequestDTO {
 
     public void setInjections(List<InjectionDTO> injections) {
         this.injections = injections;
+    }
+
+    public List<LotionDTO> getLotions() {
+        return lotions;
+    }
+
+    public void setLotions(List<LotionDTO> lotions) {
+        this.lotions = lotions;
     }
 }

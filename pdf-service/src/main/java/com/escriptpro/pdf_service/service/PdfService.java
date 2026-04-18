@@ -1,6 +1,8 @@
 package com.escriptpro.pdf_service.service;
 
+import com.escriptpro.pdf_service.dto.CapsuleDTO;
 import com.escriptpro.pdf_service.dto.InjectionDTO;
+import com.escriptpro.pdf_service.dto.LotionDTO;
 import com.escriptpro.pdf_service.dto.PrescriptionRequestDTO;
 import com.escriptpro.pdf_service.dto.SyrupDTO;
 import com.escriptpro.pdf_service.dto.TabletDTO;
@@ -333,7 +335,7 @@ public class PdfService {
                 appendWeeklyDays(instructions, tablet.getScheduleType(), tablet.getWeeklyDays());
 
                 rows.add(new MedicationRow(
-                        uppercase(joinNonBlank(" - ", "Tablet", joinNonBlank(" ", tablet.getBrand(), tablet.getMedicineName()))),
+                        uppercase(joinNonBlank(" - ", "Tablet", tablet.getName())),
                         mark(tablet.getMorning()),
                         mark(tablet.getAfternoon()),
                         mark(tablet.getNight()),
@@ -344,10 +346,38 @@ public class PdfService {
             }
         }
 
+        if (request.getCapsules() != null) {
+            for (CapsuleDTO capsule : request.getCapsules()) {
+                List<String> instructions = new ArrayList<>();
+                if (Boolean.TRUE.equals(capsule.getWithWater())) {
+                    instructions.add("With water");
+                } else if (capsule.getWithWater() != null) {
+                    instructions.add("Without water");
+                }
+                if (Boolean.TRUE.equals(capsule.getChew())) {
+                    instructions.add("Chew");
+                }
+                if (hasText(capsule.getInstruction())) {
+                    instructions.add(formatInstruction(capsule.getInstruction()));
+                }
+                appendWeeklyDays(instructions, capsule.getScheduleType(), capsule.getWeeklyDays());
+
+                rows.add(new MedicationRow(
+                        uppercase(joinNonBlank(" - ", "Capsule", capsule.getName())),
+                        mark(capsule.getMorning()),
+                        mark(capsule.getAfternoon()),
+                        mark(capsule.getNight()),
+                        joinNonBlank(", ", instructions.toArray(new String[0])),
+                        formatMedicationDuration(capsule.getDuration(), capsule.getScheduleType()),
+                        capsule.getQuantity() != null ? capsule.getQuantity().toString() : "-"
+                ));
+            }
+        }
+
         if (request.getSyrups() != null) {
             for (SyrupDTO syrup : request.getSyrups()) {
                 rows.add(new MedicationRow(
-                        uppercase(joinNonBlank(" - ", "Syrup", joinNonBlank(" ", syrup.getBrand(), syrup.getSyrupName()))),
+                        uppercase(joinNonBlank(" - ", "Syrup", syrup.getName())),
                         mark(syrup.getMorning()),
                         mark(syrup.getAfternoon()),
                         mark(syrup.getNight()),
@@ -361,13 +391,33 @@ public class PdfService {
         if (request.getInjections() != null) {
             for (InjectionDTO injection : request.getInjections()) {
                 rows.add(new MedicationRow(
-                        uppercase(joinNonBlank(" - ", "Injection", joinNonBlank(" ", injection.getBrand(), injection.getMedicineName()))),
+                        uppercase(joinNonBlank(" - ", "Injection", injection.getName())),
                         "-",
                         "-",
                         "-",
                         injectionNotes(injection),
                         injectionSchedule(injection),
                         "-"
+                ));
+            }
+        }
+
+        if (request.getLotions() != null) {
+            for (LotionDTO lotion : request.getLotions()) {
+                List<String> notes = new ArrayList<>();
+                if (hasText(lotion.getApplicationArea())) {
+                    notes.add("Apply on: " + lotion.getApplicationArea());
+                }
+                appendWeeklyDays(notes, lotion.getScheduleType(), lotion.getWeeklyDays());
+
+                rows.add(new MedicationRow(
+                        uppercase(joinNonBlank(" - ", "Lotion", lotion.getName())),
+                        mark(lotion.getMorning()),
+                        mark(lotion.getAfternoon()),
+                        mark(lotion.getNight()),
+                        notes.isEmpty() ? "-" : String.join(", ", notes),
+                        formatMedicationDuration(lotion.getDuration(), lotion.getScheduleType()),
+                        lotion.getQuantity() != null ? lotion.getQuantity().toString() : "-"
                 ));
             }
         }

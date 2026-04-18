@@ -4,8 +4,7 @@ import java.util.List;
 
 public class TabletDTO {
 
-    private String brand;
-    private String medicineName;
+    private String name;
     private Boolean morning;
     private Boolean afternoon;
     private Boolean night;
@@ -17,20 +16,12 @@ public class TabletDTO {
     private Integer duration;
     private Integer quantity;
 
-    public String getBrand() {
-        return brand;
+    public String getName() {
+        return name;
     }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
-
-    public String getMedicineName() {
-        return medicineName;
-    }
-
-    public void setMedicineName(String medicineName) {
-        this.medicineName = medicineName;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Boolean getMorning() {

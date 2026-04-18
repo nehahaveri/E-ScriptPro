@@ -4,17 +4,23 @@ import com.escriptpro.prescription_service.client.DoctorClient;
 import com.escriptpro.prescription_service.client.MedicineClient;
 import com.escriptpro.prescription_service.client.PatientClient;
 import com.escriptpro.prescription_service.client.PdfClient;
+import com.escriptpro.prescription_service.dto.CapsuleDTO;
 import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
 import com.escriptpro.prescription_service.dto.InjectionDTO;
+import com.escriptpro.prescription_service.dto.LotionDTO;
 import com.escriptpro.prescription_service.dto.PatientResponseDTO;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
 import com.escriptpro.prescription_service.dto.SyrupDTO;
 import com.escriptpro.prescription_service.dto.TabletDTO;
+import com.escriptpro.prescription_service.entity.Capsule;
 import com.escriptpro.prescription_service.entity.Injection;
+import com.escriptpro.prescription_service.entity.Lotion;
 import com.escriptpro.prescription_service.entity.Prescription;
 import com.escriptpro.prescription_service.entity.Syrup;
 import com.escriptpro.prescription_service.entity.Tablet;
+import com.escriptpro.prescription_service.repository.CapsuleRepository;
 import com.escriptpro.prescription_service.repository.InjectionRepository;
+import com.escriptpro.prescription_service.repository.LotionRepository;
 import com.escriptpro.prescription_service.repository.PrescriptionRepository;
 import com.escriptpro.prescription_service.repository.SyrupRepository;
 import com.escriptpro.prescription_service.repository.TabletRepository;
@@ -44,8 +50,10 @@ public class PrescriptionService {
 
     private final PrescriptionRepository prescriptionRepository;
     private final TabletRepository tabletRepository;
+    private final CapsuleRepository capsuleRepository;
     private final SyrupRepository syrupRepository;
     private final InjectionRepository injectionRepository;
+    private final LotionRepository lotionRepository;
     private final DoctorClient doctorClient;
     private final PatientClient patientClient;
     private final MedicineClient medicineClient;
@@ -56,8 +64,10 @@ public class PrescriptionService {
     public PrescriptionService(
             PrescriptionRepository prescriptionRepository,
             TabletRepository tabletRepository,
+            CapsuleRepository capsuleRepository,
             SyrupRepository syrupRepository,
             InjectionRepository injectionRepository,
+            LotionRepository lotionRepository,
             DoctorClient doctorClient,
             PatientClient patientClient,
             MedicineClient medicineClient,
@@ -65,8 +75,10 @@ public class PrescriptionService {
             PdfClient pdfClient) {
         this.prescriptionRepository = prescriptionRepository;
         this.tabletRepository = tabletRepository;
+        this.capsuleRepository = capsuleRepository;
         this.syrupRepository = syrupRepository;
         this.injectionRepository = injectionRepository;
+        this.lotionRepository = lotionRepository;
         this.doctorClient = doctorClient;
         this.patientClient = patientClient;
         this.medicineClient = medicineClient;
@@ -118,62 +130,94 @@ public class PrescriptionService {
         kafkaProducerService.sendPrescriptionEvent(request);
 
         if (request.getTablets() != null) {
-            request.getTablets().forEach(tabletDTO -> {
-                softValidateMedicine(tabletDTO.getBrand(), tabletDTO.getMedicineName(), "TABLET");
+            request.getTablets().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "TABLET");
+                Tablet entity = new Tablet();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setWithWater(dto.getWithWater());
+                entity.setChew(dto.getChew());
+                entity.setInstruction(dto.getInstruction());
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                tabletRepository.save(entity);
+            });
+        }
 
-                Tablet tablet = new Tablet();
-                tablet.setPrescription(savedPrescription);
-                tablet.setBrand(tabletDTO.getBrand());
-                tablet.setMedicineName(tabletDTO.getMedicineName());
-                tablet.setMorning(tabletDTO.getMorning());
-                tablet.setAfternoon(tabletDTO.getAfternoon());
-                tablet.setNight(tabletDTO.getNight());
-                tablet.setScheduleType(resolveMedicineScheduleType(tabletDTO.getScheduleType(), tabletDTO.getWeeklyDays()));
-                tablet.setWeeklyDays(joinWeeklyDays(tabletDTO.getWeeklyDays()));
-                tablet.setWithWater(tabletDTO.getWithWater());
-                tablet.setChew(tabletDTO.getChew());
-                tablet.setInstruction(tabletDTO.getInstruction());
-                tablet.setDuration(tabletDTO.getDuration());
-                tablet.setQuantity(tabletDTO.getQuantity());
-                tabletRepository.save(tablet);
+        if (request.getCapsules() != null) {
+            request.getCapsules().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "CAPSULE");
+                Capsule entity = new Capsule();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setWithWater(dto.getWithWater());
+                entity.setChew(dto.getChew());
+                entity.setInstruction(dto.getInstruction());
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                capsuleRepository.save(entity);
             });
         }
 
         if (request.getSyrups() != null) {
-            request.getSyrups().forEach(syrupDTO -> {
-                softValidateMedicine(syrupDTO.getBrand(), syrupDTO.getSyrupName(), "SYRUP");
-
-                Syrup syrup = new Syrup();
-                syrup.setPrescription(savedPrescription);
-                syrup.setBrand(syrupDTO.getBrand());
-                syrup.setSyrupName(syrupDTO.getSyrupName());
-                syrup.setMorning(syrupDTO.getMorning());
-                syrup.setAfternoon(syrupDTO.getAfternoon());
-                syrup.setNight(syrupDTO.getNight());
-                syrup.setScheduleType(resolveMedicineScheduleType(syrupDTO.getScheduleType(), syrupDTO.getWeeklyDays()));
-                syrup.setWeeklyDays(joinWeeklyDays(syrupDTO.getWeeklyDays()));
-                syrup.setIntakeType(syrupDTO.getIntakeType());
-                syrup.setIntakeValue(syrupDTO.getIntakeValue());
-                syrup.setDuration(syrupDTO.getDuration());
-                syrup.setQuantity(syrupDTO.getQuantity());
-                syrupRepository.save(syrup);
+            request.getSyrups().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "SYRUP");
+                Syrup entity = new Syrup();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setIntakeType(dto.getIntakeType());
+                entity.setIntakeValue(dto.getIntakeValue());
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                syrupRepository.save(entity);
             });
         }
 
         if (request.getInjections() != null) {
-            request.getInjections().forEach(injectionDTO -> {
-                softValidateMedicine(injectionDTO.getBrand(), injectionDTO.getMedicineName(), "INJECTION");
+            request.getInjections().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "INJECTION");
+                Injection entity = new Injection();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setDaily(resolveInjectionDaily(dto));
+                entity.setAlternateDay(dto.getAlternateDay());
+                entity.setWeeklyOnce(resolveInjectionWeekly(dto));
+                entity.setScheduleType(resolveInjectionScheduleType(dto));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                injectionRepository.save(entity);
+            });
+        }
 
-                Injection injection = new Injection();
-                injection.setPrescription(savedPrescription);
-                injection.setBrand(injectionDTO.getBrand());
-                injection.setMedicineName(injectionDTO.getMedicineName());
-                injection.setDaily(resolveInjectionDaily(injectionDTO));
-                injection.setAlternateDay(injectionDTO.getAlternateDay());
-                injection.setWeeklyOnce(resolveInjectionWeekly(injectionDTO));
-                injection.setScheduleType(resolveInjectionScheduleType(injectionDTO));
-                injection.setWeeklyDays(joinWeeklyDays(injectionDTO.getWeeklyDays()));
-                injectionRepository.save(injection);
+        if (request.getLotions() != null) {
+            request.getLotions().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "LOTION");
+                Lotion entity = new Lotion();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setApplicationArea(dto.getApplicationArea());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                lotionRepository.save(entity);
             });
         }
 
@@ -271,8 +315,10 @@ public class PrescriptionService {
         request.setConsultationFee(prescription.getConsultationFee());
         request.setFee(prescription.getConsultationFee());
         request.setTablets(buildTabletDtos(prescriptionId));
+        request.setCapsules(buildCapsuleDtos(prescriptionId));
         request.setSyrups(buildSyrupDtos(prescriptionId));
         request.setInjections(buildInjectionDtos(prescriptionId));
+        request.setLotions(buildLotionDtos(prescriptionId));
 
         return pdfClient.generatePdf(request);
     }
@@ -301,37 +347,20 @@ public class PrescriptionService {
         return filePath;
     }
 
-    private void softValidateMedicine(String brand, String medicineName, String type) {
-        String query = firstNonBlank(medicineName, brand);
-        if (query == null) {
+    private void softValidateMedicine(String name, String type) {
+        if (name == null || name.isBlank()) {
             return;
         }
 
         try {
-            List<Map<String, Object>> medicines = medicineClient.searchMedicines(query, type);
+            List<Map<String, Object>> medicines = medicineClient.searchMedicines(name, type);
             if (medicines == null || medicines.isEmpty()) {
-                log.info(
-                        "No medicine match found. Accepting custom entry. brand='{}', medicineName='{}', type='{}'.",
-                        brand, medicineName, type
-                );
-                medicineClient.registerCustomSuggestion(type, brand, medicineName);
+                log.info("No medicine match found. Accepting custom entry. name='{}', type='{}'.", name, type);
+                medicineClient.registerCustomSuggestion(type, name);
             }
         } catch (Exception e) {
-            log.warn(
-                    "Medicine lookup failed. Accepting custom entry. brand='{}', medicineName='{}', type='{}'.",
-                    brand, medicineName, type, e
-            );
+            log.warn("Medicine lookup failed. Accepting custom entry. name='{}', type='{}'.", name, type, e);
         }
-    }
-
-    private String firstNonBlank(String first, String second) {
-        if (first != null && !first.isBlank()) {
-            return first;
-        }
-        if (second != null && !second.isBlank()) {
-            return second;
-        }
-        return null;
     }
 
     private PatientResponseDTO validatePatientOwnership(Long patientId, String token) {
@@ -350,8 +379,7 @@ public class PrescriptionService {
         List<TabletDTO> result = new ArrayList<>();
         tabletRepository.findByPrescriptionId(prescriptionId).forEach(tablet -> result.add(
                 new TabletDTO(
-                        tablet.getBrand(),
-                        tablet.getMedicineName(),
+                        tablet.getName(),
                         tablet.getMorning(),
                         tablet.getAfternoon(),
                         tablet.getNight(),
@@ -367,12 +395,31 @@ public class PrescriptionService {
         return result;
     }
 
+    private List<CapsuleDTO> buildCapsuleDtos(Long prescriptionId) {
+        List<CapsuleDTO> result = new ArrayList<>();
+        capsuleRepository.findByPrescriptionId(prescriptionId).forEach(capsule -> result.add(
+                new CapsuleDTO(
+                        capsule.getName(),
+                        capsule.getMorning(),
+                        capsule.getAfternoon(),
+                        capsule.getNight(),
+                        resolveMedicineScheduleType(capsule.getScheduleType(), splitWeeklyDays(capsule.getWeeklyDays())),
+                        splitWeeklyDays(capsule.getWeeklyDays()),
+                        capsule.getWithWater(),
+                        capsule.getChew(),
+                        capsule.getInstruction(),
+                        capsule.getDuration(),
+                        capsule.getQuantity()
+                )
+        ));
+        return result;
+    }
+
     private List<SyrupDTO> buildSyrupDtos(Long prescriptionId) {
         List<SyrupDTO> result = new ArrayList<>();
         syrupRepository.findByPrescriptionId(prescriptionId).forEach(syrup -> result.add(
                 new SyrupDTO(
-                        syrup.getBrand(),
-                        syrup.getSyrupName(),
+                        syrup.getName(),
                         syrup.getMorning(),
                         syrup.getAfternoon(),
                         syrup.getNight(),
@@ -391,13 +438,30 @@ public class PrescriptionService {
         List<InjectionDTO> result = new ArrayList<>();
         injectionRepository.findByPrescriptionId(prescriptionId).forEach(injection -> result.add(
                 new InjectionDTO(
-                        injection.getBrand(),
-                        injection.getMedicineName(),
+                        injection.getName(),
                         injection.getDaily(),
                         injection.getAlternateDay(),
                         injection.getWeeklyOnce(),
                         deriveInjectionScheduleType(injection),
                         splitWeeklyDays(injection.getWeeklyDays())
+                )
+        ));
+        return result;
+    }
+
+    private List<LotionDTO> buildLotionDtos(Long prescriptionId) {
+        List<LotionDTO> result = new ArrayList<>();
+        lotionRepository.findByPrescriptionId(prescriptionId).forEach(lotion -> result.add(
+                new LotionDTO(
+                        lotion.getName(),
+                        lotion.getApplicationArea(),
+                        lotion.getMorning(),
+                        lotion.getAfternoon(),
+                        lotion.getNight(),
+                        resolveMedicineScheduleType(lotion.getScheduleType(), splitWeeklyDays(lotion.getWeeklyDays())),
+                        splitWeeklyDays(lotion.getWeeklyDays()),
+                        lotion.getDuration(),
+                        lotion.getQuantity()
                 )
         ));
         return result;
@@ -423,6 +487,8 @@ public class PrescriptionService {
 
     private void deletePrescriptionRecords(Prescription prescription) {
         Long prescriptionId = prescription.getId();
+        lotionRepository.deleteByPrescriptionId(prescriptionId);
+        capsuleRepository.deleteByPrescriptionId(prescriptionId);
         injectionRepository.deleteByPrescriptionId(prescriptionId);
         syrupRepository.deleteByPrescriptionId(prescriptionId);
         tabletRepository.deleteByPrescriptionId(prescriptionId);

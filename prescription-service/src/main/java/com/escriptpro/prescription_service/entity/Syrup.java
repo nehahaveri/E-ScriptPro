@@ -26,9 +26,7 @@ public class Syrup {
     @JoinColumn(name = "prescription_id")
     private Prescription prescription;
 
-    private String brand;
-
-    private String syrupName;
+    private String name;
 
     private Boolean morning;
 

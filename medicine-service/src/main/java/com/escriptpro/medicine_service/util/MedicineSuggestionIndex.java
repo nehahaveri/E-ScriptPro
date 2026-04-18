@@ -27,12 +27,10 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
     private static final String CLEAN_DATA_FILE = "medicines_clean.csv";
     private static final int LIMIT = 10;
 
-    private final Map<MedicineType, Set<String>> brands = new EnumMap<>(MedicineType.class);
     private final Map<MedicineType, Set<String>> names = new EnumMap<>(MedicineType.class);
 
     public MedicineSuggestionIndex() {
         for (MedicineType type : MedicineType.values()) {
-            brands.put(type, new TreeSet<>(String.CASE_INSENSITIVE_ORDER));
             names.put(type, new TreeSet<>(String.CASE_INSENSITIVE_ORDER));
         }
     }
@@ -43,21 +41,12 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
         loadIndexFromCsvFiles();
     }
 
-    public synchronized List<String> searchBrandSuggestions(MedicineType type, String query) {
-        return search(brands.get(type), query);
-    }
-
     public synchronized List<String> searchNameSuggestions(MedicineType type, String query) {
         return search(names.get(type), query);
     }
 
-    public synchronized void registerCustomSuggestion(MedicineType type, String brand, String medicineName) {
-        String normalizedBrand = normalize(brand);
-        String normalizedName = normalize(medicineName);
-
-        if (normalizedBrand != null && brands.get(type).add(normalizedBrand)) {
-            appendLine(resolveIndexPath(type, "brands"), normalizedBrand);
-        }
+    public synchronized void registerCustomSuggestion(MedicineType type, String name) {
+        String normalizedName = normalize(name);
         if (normalizedName != null && names.get(type).add(normalizedName)) {
             appendLine(resolveIndexPath(type, "names"), normalizedName);
         }
@@ -87,15 +76,11 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
 
         List<String> merged = new ArrayList<>(LIMIT);
         for (String value : startsWith) {
-            if (merged.size() == LIMIT) {
-                break;
-            }
+            if (merged.size() == LIMIT) break;
             merged.add(value);
         }
         for (String value : contains) {
-            if (merged.size() == LIMIT) {
-                break;
-            }
+            if (merged.size() == LIMIT) break;
             merged.add(value);
         }
         return merged;
@@ -107,10 +92,8 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
             return;
         }
 
-        Map<MedicineType, Set<String>> brandAccumulator = new EnumMap<>(MedicineType.class);
         Map<MedicineType, Set<String>> nameAccumulator = new EnumMap<>(MedicineType.class);
         for (MedicineType type : MedicineType.values()) {
-            brandAccumulator.put(type, new LinkedHashSet<>());
             nameAccumulator.put(type, new LinkedHashSet<>());
         }
 
@@ -125,13 +108,12 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
                     continue;
                 }
                 List<String> cols = parseCsvLine(line);
-                if (cols.size() < 3) {
+                if (cols.size() < 2) {
                     continue;
                 }
-                String brand = normalize(cols.get(0));
-                String name = normalize(cols.get(1));
-                String typeRaw = normalize(cols.get(2));
-                if (typeRaw == null) {
+                String name = normalize(cols.get(0));
+                String typeRaw = normalize(cols.get(1));
+                if (typeRaw == null || name == null) {
                     continue;
                 }
 
@@ -142,24 +124,17 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
                     continue;
                 }
 
-                if (brand != null) {
-                    brandAccumulator.get(type).add(brand);
-                }
-                if (name != null) {
-                    nameAccumulator.get(type).add(name);
-                }
+                nameAccumulator.get(type).add(name);
             }
         }
 
         for (MedicineType type : MedicineType.values()) {
-            writeIndex(resolveIndexPath(type, "brands"), "brand", brandAccumulator.get(type));
-            writeIndex(resolveIndexPath(type, "names"), "medicine_name", nameAccumulator.get(type));
+            writeIndex(resolveIndexPath(type, "names"), "name", nameAccumulator.get(type));
         }
     }
 
     private void loadIndexFromCsvFiles() throws IOException {
         for (MedicineType type : MedicineType.values()) {
-            loadIndex(resolveIndexPath(type, "brands"), brands.get(type));
             loadIndex(resolveIndexPath(type, "names"), names.get(type));
         }
     }
@@ -201,9 +176,8 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
         try {
             Files.createDirectories(filePath.getParent());
             if (!Files.exists(filePath)) {
-                String header = filePath.getFileName().toString().contains("brands") ? "brand" : "medicine_name";
                 try (BufferedWriter writer = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8)) {
-                    writer.write(header);
+                    writer.write("name");
                     writer.newLine();
                 }
             }
@@ -215,7 +189,6 @@ public class MedicineSuggestionIndex implements CommandLineRunner {
                 writer.newLine();
             }
         } catch (IOException ignored) {
-            // Best effort write for local index enrichment.
         }
     }
 

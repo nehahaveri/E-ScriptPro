@@ -32,32 +32,12 @@ public class MedicineService {
         System.out.println("🔥 DB HIT - fetching medicines");
         String normalizedQuery = query == null ? "" : query.trim();
         PageRequest topTen = PageRequest.of(0, 10);
-        List<Medicine> medicines;
 
         if (type != null && !type.isBlank()) {
             MedicineType medicineType = MedicineType.valueOf(type.toUpperCase(Locale.ROOT));
-            medicines = medicineRepository.searchAutocompleteByType(
-                    normalizedQuery,
-                    medicineType,
-                    topTen
-            );
-        } else {
-            medicines = medicineRepository.searchAutocomplete(
-                    normalizedQuery,
-                    topTen
-            );
+            return medicineRepository.searchAutocompleteByType(normalizedQuery, medicineType, topTen);
         }
-
-        return medicines;
-    }
-
-    @Cacheable(
-            value = "medicineCache",
-            key = "'brand_' + T(String).valueOf(#query).toLowerCase() + '_' + (#type != null ? #type : 'ALL')"
-    )
-    public List<String> searchBrandSuggestions(String query, String type) {
-        MedicineType medicineType = parseRequiredType(type);
-        return medicineSuggestionIndex.searchBrandSuggestions(medicineType, query);
+        return medicineRepository.searchAutocomplete(normalizedQuery, topTen);
     }
 
     @Cacheable(
@@ -70,16 +50,20 @@ public class MedicineService {
     }
 
     @CacheEvict(value = "medicineCache", allEntries = true)
-    public void registerCustomSuggestion(String type, String brand, String medicineName) {
+    public void registerCustomSuggestion(String type, String name) {
         MedicineType medicineType = parseRequiredType(type);
-        medicineSuggestionIndex.registerCustomSuggestion(medicineType, brand, medicineName);
-    }
+        medicineSuggestionIndex.registerCustomSuggestion(medicineType, name);
 
-    private MedicineType parseType(String type) {
-        if (type == null || type.isBlank()) {
-            return null;
+        // Also persist to DB if not already present
+        String normalized = name == null ? null : name.trim();
+        if (normalized != null && !normalized.isEmpty()) {
+            if (medicineRepository.findByNameAndType(normalized, medicineType).isEmpty()) {
+                Medicine medicine = new Medicine();
+                medicine.setName(normalized);
+                medicine.setType(medicineType);
+                medicineRepository.save(medicine);
+            }
         }
-        return MedicineType.valueOf(type.toUpperCase(Locale.ROOT));
     }
 
     private MedicineType parseRequiredType(String type) {
@@ -89,4 +73,3 @@ public class MedicineService {
         return MedicineType.valueOf(type.toUpperCase(Locale.ROOT));
     }
 }
-// beta1 branch

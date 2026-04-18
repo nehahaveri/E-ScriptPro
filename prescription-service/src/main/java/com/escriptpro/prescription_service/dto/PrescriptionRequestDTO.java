@@ -53,7 +53,11 @@ public class PrescriptionRequestDTO {
 
     private List<TabletDTO> tablets;
 
+    private List<CapsuleDTO> capsules;
+
     private List<SyrupDTO> syrups;
 
     private List<InjectionDTO> injections;
+
+    private List<LotionDTO> lotions;
 }
