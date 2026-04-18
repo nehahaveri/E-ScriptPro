@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Eye, EyeOff, KeyRound, Mail, Phone, ShieldCheck, Stethoscope, UserCog } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, KeyRound, Mail, Moon, Phone, ShieldCheck, Stethoscope, Sun, UserCog } from 'lucide-react'
 import api from '../services/api'
 
 function Login() {
@@ -16,6 +16,17 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [darkMode])
 
   const persistLoginPreference = (loginIdentifier) => {
     if (rememberMe) {
@@ -111,13 +122,43 @@ function Login() {
 
   return (
     <main className="auth-shell">
-      <section className="auth-card">
-        <div className="auth-header-row">
-          <p className="auth-kicker">Secure Access</p>
-          <span className="auth-icon-badge">
-            <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
-          </span>
+      <button
+        type="button"
+        onClick={() => setDarkMode((d) => !d)}
+        className="absolute right-4 top-4 z-20 rounded-full border border-white/15 bg-white/10 p-2.5 text-white/70 backdrop-blur transition hover:bg-white/20 hover:text-white"
+        aria-label="Toggle dark mode"
+      >
+        {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
+
+      <div className="relative z-10 flex w-full max-w-4xl overflow-hidden rounded-[2.2rem] sm:rounded-[3rem]" style={{ backdropFilter: 'blur(24px)' }}>
+        {/* Branding panel — visible on md+ */}
+        <div className="hidden w-[44%] flex-col justify-between bg-gradient-to-br from-[#0b5fd7]/90 to-[#00d2ff]/70 p-10 md:flex">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80">E-ScriptPro</p>
+            <h2 className="mt-3 text-2xl font-bold leading-tight text-white">Digital Prescriptions,<br />Simplified.</h2>
+            <p className="mt-4 text-sm leading-6 text-white/75">Manage patients, generate prescriptions, and streamline your practice — all in one place.</p>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5 text-xs text-white/80">
+              <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+              <span>Secure authentication with MFA</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-white/80">
+              <Stethoscope className="h-4 w-4 flex-shrink-0" />
+              <span>Built for doctors &amp; clinics</span>
+            </div>
+          </div>
         </div>
+
+        {/* Auth card */}
+        <section className="auth-card flex-1 rounded-none border-0" style={{ boxShadow: 'none' }}>
+          <div className="auth-header-row">
+            <p className="auth-kicker">Secure Access</p>
+            <span className="auth-icon-badge">
+              <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
+            </span>
+          </div>
         <h1 className="auth-title text-xl sm:text-2xl md:text-[1.8rem]">
           {selectedRole === 'RECEPTIONIST' ? 'Receptionist Login' : 'Doctor Login'}
         </h1>
@@ -258,6 +299,7 @@ function Login() {
           </Link>
         </p>
       </section>
+      </div>
     </main>
   )
 }

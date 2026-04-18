@@ -3,7 +3,7 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Annotation profile for patient-service" enabled="true">
+      <profile name="Annotation profile for receptionist-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -17,6 +17,7 @@
         <module name="doctor-service" />
         <module name="api-gateway" />
         <module name="patient-service" />
+        <module name="receptionist-service" />
       </profile>
     </annotationProcessing>
   </component>
@@ -29,6 +30,7 @@
       <module name="patient-service" options="-parameters" />
       <module name="pdf-service" options="-parameters" />
       <module name="prescription-service" options="-parameters" />
+      <module name="receptionist-service" options="-parameters" />
     </option>
   </component>
 </project>
