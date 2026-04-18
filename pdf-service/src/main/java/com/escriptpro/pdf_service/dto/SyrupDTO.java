@@ -4,8 +4,7 @@ import java.util.List;
 
 public class SyrupDTO {
 
-    private String brand;
-    private String syrupName;
+    private String name;
     private Boolean morning;
     private Boolean afternoon;
     private Boolean night;
@@ -16,20 +15,12 @@ public class SyrupDTO {
     private Integer duration;
     private Integer quantity;
 
-    public String getBrand() {
-        return brand;
+    public String getName() {
+        return name;
     }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
-
-    public String getSyrupName() {
-        return syrupName;
-    }
-
-    public void setSyrupName(String syrupName) {
-        this.syrupName = syrupName;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Boolean getMorning() {

@@ -37,12 +37,27 @@ import {
   Plus,
   Trash2,
   ChevronDown,
+  Mic,
+  MicOff,
 } from 'lucide-react'
 import api from '../services/api'
 
 const emptyTablet = {
-  brand: '',
-  medicineName: '',
+  name: '',
+  morning: false,
+  afternoon: false,
+  night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  withWater: true,
+  chew: false,
+  instruction: 'AFTER_FOOD',
+  duration: '',
+  quantity: '',
+}
+
+const emptyCapsule = {
+  name: '',
   morning: false,
   afternoon: false,
   night: false,
@@ -56,8 +71,7 @@ const emptyTablet = {
 }
 
 const emptySyrup = {
-  brand: '',
-  syrupName: '',
+  name: '',
   morning: false,
   afternoon: false,
   night: false,
@@ -70,8 +84,7 @@ const emptySyrup = {
 }
 
 const emptyInjection = {
-  brand: '',
-  medicineName: '',
+  name: '',
   daily: true,
   alternateDay: false,
   weeklyOnce: false,
@@ -79,32 +92,37 @@ const emptyInjection = {
   weeklyDays: [],
 }
 
+const emptyLotion = {
+  name: '',
+  applicationArea: '',
+  morning: false,
+  afternoon: false,
+  night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  duration: '',
+  quantity: '',
+}
+
 const weekDayOptions = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
 const medicineTypeOptions = [
-  { value: 'TABLET', label: 'Tablets' },
-  { value: 'SYRUP', label: 'Syrups' },
-  { value: 'INJECTION', label: 'Injections' },
+  { value: 'TABLET', label: 'Tablet' },
+  { value: 'CAPSULE', label: 'Capsule' },
+  { value: 'SYRUP', label: 'Syrup' },
+  { value: 'INJECTION', label: 'Injection' },
+  { value: 'LOTION', label: 'Lotion' },
 ]
 
 const createEmptyMedicineDraft = (type) => {
-  if (type === 'SYRUP') {
-    return { ...emptySyrup }
-  }
-
-  if (type === 'INJECTION') {
-    return { ...emptyInjection }
-  }
-
+  if (type === 'CAPSULE') return { ...emptyCapsule }
+  if (type === 'SYRUP') return { ...emptySyrup }
+  if (type === 'INJECTION') return { ...emptyInjection }
+  if (type === 'LOTION') return { ...emptyLotion }
   return { ...emptyTablet }
 }
 
-const getMedicineNameField = (type) => (type === 'SYRUP' ? 'syrupName' : 'medicineName')
-
-const hasMedicineValue = (type, medicine) => {
-  const nameField = getMedicineNameField(type)
-  return Boolean(medicine.brand || medicine[nameField])
-}
+const hasMedicineValue = (_type, medicine) => Boolean(medicine.name)
 
 const formatMealInstruction = (instruction) =>
   instruction
@@ -132,7 +150,7 @@ const formatSyrupIntake = (intakeType, intakeValue) => {
 }
 
 const summarizeMedicine = (type, medicine) => {
-  if (type === 'TABLET') {
+  if (type === 'TABLET' || type === 'CAPSULE') {
     const timings = ['morning', 'afternoon', 'night']
       .filter((key) => medicine[key])
       .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
@@ -149,13 +167,13 @@ const summarizeMedicine = (type, medicine) => {
       formatScheduleLabel(medicine.scheduleType),
       medicine.duration ? `${medicine.duration} ${medicine.scheduleType === 'WEEKLY' ? 'week(s)' : 'day(s)'}` : null,
       weeklyDays || null,
-      medicine.quantity ? `${medicine.quantity} tablet(s)` : null,
+      medicine.quantity ? `${medicine.quantity} ${type.toLowerCase()}(s)` : null,
       medicine.instruction ? formatMealInstruction(medicine.instruction) : null,
     ]
       .filter(Boolean)
       .join(' • ')
 
-    return [medicine.brand || 'No brand', medicine.medicineName || 'No medicine name', timings, extras]
+    return [medicine.name || 'No name', timings, extras]
       .filter(Boolean)
       .join(' | ')
   }
@@ -181,11 +199,32 @@ const summarizeMedicine = (type, medicine) => {
       .filter(Boolean)
       .join(' • ')
 
-    return [medicine.brand || 'No brand', medicine.syrupName || 'No syrup name', timings, extras]
+    return [medicine.name || 'No name', timings, extras]
       .filter(Boolean)
       .join(' | ')
   }
 
+  if (type === 'LOTION') {
+    const timings = ['morning', 'afternoon', 'night']
+      .filter((key) => medicine[key])
+      .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
+      .join(', ')
+
+    const extras = [
+      medicine.applicationArea ? `Apply on: ${medicine.applicationArea}` : null,
+      formatScheduleLabel(medicine.scheduleType),
+      medicine.duration ? `${medicine.duration} day(s)` : null,
+      medicine.quantity ? `${medicine.quantity} unit(s)` : null,
+    ]
+      .filter(Boolean)
+      .join(' • ')
+
+    return [medicine.name || 'No name', timings, extras]
+      .filter(Boolean)
+      .join(' | ')
+  }
+
+  // INJECTION
   const schedule = ['daily', 'alternateDay', 'weeklyOnce']
     .filter((key) => medicine[key])
     .map((key) => {
@@ -199,7 +238,7 @@ const summarizeMedicine = (type, medicine) => {
 
   const weeklyDays = Array.isArray(medicine.weeklyDays) ? medicine.weeklyDays.map(formatWeeklyDay).join(', ') : ''
 
-  return [medicine.brand || 'No brand', medicine.medicineName || 'No injection name', resolvedSchedule, weeklyDays]
+  return [medicine.name || 'No name', resolvedSchedule, weeklyDays]
     .filter(Boolean)
     .join(' | ')
 }
@@ -384,10 +423,14 @@ function Dashboard() {
   const [selectedMedicineType, setSelectedMedicineType] = useState('TABLET')
   const [medicineDraft, setMedicineDraft] = useState(createEmptyMedicineDraft('TABLET'))
   const [tablets, setTablets] = useState([])
+  const [capsules, setCapsules] = useState([])
   const [syrups, setSyrups] = useState([])
   const [injections, setInjections] = useState([])
+  const [lotions, setLotions] = useState([])
   const [suggestions, setSuggestions] = useState({})
   const suggestionCacheRef = useRef(new Map())
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef(null)
 
   const selectedPatientFromList = useMemo(
     () => patients.find((p) => p.id === selectedPatientId) || null,
@@ -845,16 +888,8 @@ function Dashboard() {
         ...new Set(
           data
             .map((item) => {
-              if (!item || typeof item !== 'object') {
-                return ''
-              }
-
-              if (field === 'combined') {
-                const b = item.brand || ''
-                const n = item.medicineName || item.syrupName || ''
-                return b && n ? `${b} — ${n}` : b || n
-              }
-              return field === 'brand' ? item.brand : item.medicineName
+              if (!item || typeof item !== 'object') return ''
+              return item.name || ''
             })
             .filter(Boolean)
         ),
@@ -993,7 +1028,7 @@ function Dashboard() {
     setError('')
 
     if (!hasMedicineValue(selectedMedicineType, medicineDraft)) {
-      setError('Enter at least a medicine brand or name before adding.')
+      setError('Enter a medicine name before adding.')
       return
     }
 
@@ -1002,27 +1037,23 @@ function Dashboard() {
       return
     }
 
+    const finalDraft = { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) }
+
     if (selectedMedicineType === 'TABLET') {
-      setTablets((prev) => [
-        ...prev,
-        { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) },
-      ])
+      setTablets((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'CAPSULE') {
+      setCapsules((prev) => [...prev, finalDraft])
     } else if (selectedMedicineType === 'SYRUP') {
-      setSyrups((prev) => [
-        ...prev,
-        { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) },
-      ])
+      setSyrups((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'LOTION') {
+      setLotions((prev) => [...prev, finalDraft])
     } else {
-      setInjections((prev) => [
-        ...prev,
-        { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) },
-      ])
+      setInjections((prev) => [...prev, finalDraft])
     }
 
     setSuggestions((prev) => ({
       ...prev,
-      [`${selectedMedicineType.toLowerCase()}-draft-brand`]: [],
-      [`${selectedMedicineType.toLowerCase()}-draft-name`]: [],
+      [combinedSuggestionKey]: [],
     }))
     setMedicineDraft(createEmptyMedicineDraft(selectedMedicineType))
   }
@@ -1032,17 +1063,15 @@ function Dashboard() {
       updateMedicineDraft('instruction', instruction)
       return
     }
-    const finalDraft = { ...medicineDraft, instruction }
+    const finalDraft = { ...medicineDraft, instruction, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) }
     if (selectedMedicineType === 'TABLET') {
-      setTablets((prev) => [
-        ...prev,
-        { ...finalDraft, weeklyDays: normalizeWeeklyDays(finalDraft.scheduleType, finalDraft.weeklyDays) },
-      ])
+      setTablets((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'CAPSULE') {
+      setCapsules((prev) => [...prev, finalDraft])
     } else if (selectedMedicineType === 'SYRUP') {
-      setSyrups((prev) => [
-        ...prev,
-        { ...finalDraft, weeklyDays: normalizeWeeklyDays(finalDraft.scheduleType, finalDraft.weeklyDays) },
-      ])
+      setSyrups((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'LOTION') {
+      setLotions((prev) => [...prev, finalDraft])
     }
     setSuggestions((prev) => ({
       ...prev,
@@ -1098,12 +1127,18 @@ function Dashboard() {
       setTablets((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
       return
     }
-
+    if (type === 'CAPSULE') {
+      setCapsules((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
     if (type === 'SYRUP') {
       setSyrups((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
       return
     }
-
+    if (type === 'LOTION') {
+      setLotions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
     setInjections((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
@@ -1112,8 +1147,10 @@ function Dashboard() {
     const combinedSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-combined`
     const medicineCounts = {
     TABLET: tablets.filter((item) => hasMedicineValue('TABLET', item)).length,
+    CAPSULE: capsules.filter((item) => hasMedicineValue('CAPSULE', item)).length,
     SYRUP: syrups.filter((item) => hasMedicineValue('SYRUP', item)).length,
     INJECTION: injections.filter((item) => hasMedicineValue('INJECTION', item)).length,
+    LOTION: lotions.filter((item) => hasMedicineValue('LOTION', item)).length,
     }
 
     const submitPrescription = async (event) => {
@@ -1145,10 +1182,11 @@ function Dashboard() {
         advice: advice.trim(),
         consultationFee: consultationFee === '' ? null : Number(consultationFee),
         fee: consultationFee === '' ? null : Number(consultationFee),
-        tablets: tablets.filter((t) => t.brand || t.medicineName),
-        syrups: syrups.filter((s) => s.brand || s.syrupName),
+        tablets: tablets.filter((t) => t.name),
+        capsules: capsules.filter((c) => c.name),
+        syrups: syrups.filter((s) => s.name),
         injections: injections
-          .filter((i) => i.brand || i.medicineName)
+          .filter((i) => i.name)
           .map((injection) => ({
             ...injection,
             daily: injection.scheduleType === 'DAILY',
@@ -1156,6 +1194,7 @@ function Dashboard() {
             alternateDay: injection.scheduleType === 'ALTERNATE_DAY',
             weeklyDays: normalizeWeeklyDays(injection.scheduleType, injection.weeklyDays),
           })),
+        lotions: lotions.filter((l) => l.name),
       }
 
       payload.tablets = payload.tablets.map((tablet) => ({
@@ -1163,10 +1202,20 @@ function Dashboard() {
         weeklyDays: normalizeWeeklyDays(tablet.scheduleType, tablet.weeklyDays),
       }))
 
+      payload.capsules = payload.capsules.map((capsule) => ({
+        ...capsule,
+        weeklyDays: normalizeWeeklyDays(capsule.scheduleType, capsule.weeklyDays),
+      }))
+
       payload.syrups = payload.syrups.map((syrup) => ({
         ...syrup,
         weeklyDays: normalizeWeeklyDays(syrup.scheduleType, syrup.weeklyDays),
         intakeValue: syrup.intakeValue === '' ? null : Number(syrup.intakeValue),
+      }))
+
+      payload.lotions = payload.lotions.map((lotion) => ({
+        ...lotion,
+        weeklyDays: normalizeWeeklyDays(lotion.scheduleType, lotion.weeklyDays),
       }))
 
       if (prescriptionMode === 'PATIENT' && !selectedPatientId) {
@@ -1206,7 +1255,7 @@ function Dashboard() {
     const stats = [
     { label: 'Patients', value: patients.length, icon: <User className="h-4 w-4 text-cyan-700" /> },
     { label: 'Prescriptions', value: prescriptionHistory.length, icon: <FileText className="h-4 w-4 text-indigo-700" /> },
-    { label: 'Medicines', value: tablets.length + syrups.length + injections.length, icon: <Pill className="h-4 w-4 text-emerald-700" /> },
+    { label: 'Medicines', value: tablets.length + capsules.length + syrups.length + injections.length + lotions.length, icon: <Pill className="h-4 w-4 text-emerald-700" /> },
     ]
 
     const openDatePicker = (inputRef) => {
@@ -2138,50 +2187,63 @@ function Dashboard() {
                             onChange={(e) => handleMedicineTypeChange(e.target.value)}
                           >
                             <option value="TABLET">Tablet</option>
+                            <option value="CAPSULE">Capsule</option>
                             <option value="SYRUP">Syrup</option>
                             <option value="INJECTION">Injection</option>
+                            <option value="LOTION">Lotion</option>
                           </select>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <AutocompleteInput
-                          value={
-                            selectedMedicineType === 'SYRUP'
-                              ? medicineDraft.brand
-                                ? `${medicineDraft.brand} — ${medicineDraft.syrupName || ''}`.trim()
-                                : medicineDraft.syrupName
-                              : medicineDraft.brand
-                                ? `${medicineDraft.brand} — ${medicineDraft.medicineName || ''}`.trim()
-                                : medicineDraft.medicineName
-                          }
-                          placeholder={`Search ${selectedMedicineType.toLowerCase()} (brand or name)`}
-                          suggestions={suggestions[combinedSuggestionKey] || []}
-                          onChange={(value) => {
-                            // Split value into brand and name if possible
-                            const [brand, ...rest] = value.split('—').map((v) => v.trim())
-                            if (selectedMedicineType === 'SYRUP') {
-                              updateMedicineDraft('brand', brand)
-                              updateMedicineDraft('syrupName', rest.join('—'))
-                            } else {
-                              updateMedicineDraft('brand', brand)
-                              updateMedicineDraft('medicineName', rest.join('—'))
-                            }
-                            fetchMedicineSuggestions(selectedMedicineType, combinedSuggestionKey, value, 'combined')
-                          }}
-                          onSelect={(value) => {
-                            const [brand, ...rest] = value.split('—').map((v) => v.trim())
-                            if (selectedMedicineType === 'SYRUP') {
-                              updateMedicineDraft('brand', brand)
-                              updateMedicineDraft('syrupName', rest.join('—'))
-                            } else {
-                              updateMedicineDraft('brand', brand)
-                              updateMedicineDraft('medicineName', rest.join('—'))
-                            }
-                            setSuggestions((prev) => ({ ...prev, [combinedSuggestionKey]: [] }))
-                          }}
-                        />
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <AutocompleteInput
+                              value={medicineDraft.name}
+                              placeholder={`Search ${selectedMedicineType.toLowerCase()} name`}
+                              suggestions={suggestions[combinedSuggestionKey] || []}
+                              onChange={(value) => {
+                                updateMedicineDraft('name', value)
+                                fetchMedicineSuggestions(selectedMedicineType, combinedSuggestionKey, value, 'name')
+                              }}
+                              onSelect={(value) => {
+                                updateMedicineDraft('name', value)
+                                setSuggestions((prev) => ({ ...prev, [combinedSuggestionKey]: [] }))
+                              }}
+                            />
+                          </div>
+                          <VoiceButton
+                            isListening={isListening}
+                            onToggle={() => {
+                              if (isListening) {
+                                recognitionRef.current?.stop()
+                                setIsListening(false)
+                                return
+                              }
+                              const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+                              if (!SpeechRecognition) {
+                                setError('Voice recognition is not supported in this browser.')
+                                return
+                              }
+                              const recognition = new SpeechRecognition()
+                              recognitionRef.current = recognition
+                              recognition.continuous = false
+                              recognition.interimResults = false
+                              recognition.lang = 'en-IN'
+                              recognition.onresult = (event) => {
+                                const transcript = event.results[0][0].transcript.trim()
+                                updateMedicineDraft('name', transcript)
+                                fetchMedicineSuggestions(selectedMedicineType, combinedSuggestionKey, transcript, 'name')
+                                setIsListening(false)
+                              }
+                              recognition.onerror = () => setIsListening(false)
+                              recognition.onend = () => setIsListening(false)
+                              recognition.start()
+                              setIsListening(true)
+                            }}
+                          />
+                        </div>
                       </div>
-                      {selectedMedicineType === 'TABLET' && (
+                      {(selectedMedicineType === 'TABLET' || selectedMedicineType === 'CAPSULE') && (
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <label className="inline-flex items-center gap-1">
@@ -2419,14 +2481,90 @@ function Dashboard() {
                           )}
                         </div>
                       )}
+                      {selectedMedicineType === 'LOTION' && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={Boolean(medicineDraft.morning)} onChange={(e) => updateMedicineDraft('morning', e.target.checked)} />
+                              <Sun className="h-3 w-3 text-yellow-500" /> Morning
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={Boolean(medicineDraft.afternoon)} onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)} />
+                              <CloudSun className="h-3 w-3 text-orange-400" /> Afternoon
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={Boolean(medicineDraft.night)} onChange={(e) => updateMedicineDraft('night', e.target.checked)} />
+                              <Moon className="h-3 w-3 text-indigo-500" /> Night
+                            </label>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                            <input
+                              type="text"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.applicationArea ?? ''}
+                              placeholder="Application area (e.g. affected skin)"
+                              onChange={(e) => updateMedicineDraft('applicationArea', e.target.value)}
+                            />
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.duration ?? ''}
+                              placeholder="Duration (days)"
+                              onChange={(e) => updateMedicineDraft('duration', e.target.value)}
+                            />
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.quantity ?? ''}
+                              placeholder="Quantity"
+                              onChange={(e) => updateMedicineDraft('quantity', e.target.value)}
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                                medicineDraft.instruction === 'AFTER_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('AFTER_FOOD')}
+                            >
+                              <Cookie className="mr-1 inline h-3 w-3" /> After Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                                medicineDraft.instruction === 'BEFORE_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('BEFORE_FOOD')}
+                            >
+                              <Timer className="mr-1 inline h-3 w-3" /> Before Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                                medicineDraft.instruction === 'EMPTY_STOMACH' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('EMPTY_STOMACH')}
+                            >
+                              <GlassWater className="mr-1 inline h-3 w-3" /> Empty Stomach
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
                       <MedicineList
                         title="Tablets"
                         items={tablets}
                         type="TABLET"
                         onRemove={(index) => removeMedicine('TABLET', index)}
+                      />
+                      <MedicineList
+                        title="Capsules"
+                        items={capsules}
+                        type="CAPSULE"
+                        onRemove={(index) => removeMedicine('CAPSULE', index)}
                       />
                       <MedicineList
                         title="Syrups"
@@ -2439,6 +2577,12 @@ function Dashboard() {
                         items={injections}
                         type="INJECTION"
                         onRemove={(index) => removeMedicine('INJECTION', index)}
+                      />
+                      <MedicineList
+                        title="Lotions"
+                        items={lotions}
+                        type="LOTION"
+                        onRemove={(index) => removeMedicine('LOTION', index)}
                       />
                     </div>
 
@@ -2533,6 +2677,23 @@ function WeekdaySelector({ selectedDays, onToggle }) {
         })}
       </div>
     </div>
+  )
+}
+
+function VoiceButton({ isListening, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition ${
+        isListening
+          ? 'bg-red-100 text-red-600 ring-2 ring-red-300 animate-pulse'
+          : 'bg-white/70 text-slate-500 hover:bg-white hover:text-cyan-700'
+      }`}
+      title={isListening ? 'Stop listening' : 'Voice input'}
+    >
+      {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+    </button>
   )
 }
 

@@ -17,8 +17,7 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "medicine_master",
         indexes = {
-                @Index(name = "idx_medicine_name", columnList = "medicine_name"),
-                @Index(name = "idx_brand", columnList = "brand")
+                @Index(name = "idx_medicine_name", columnList = "name")
         }
 )
 @Data
@@ -32,9 +31,7 @@ public class Medicine implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String brand;
-
-    private String medicineName;
+    private String name;
 
     @Enumerated(EnumType.STRING)
     private MedicineType type;

@@ -10,9 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SyrupDTO {
 
-    private String brand;
-
-    private String syrupName;
+    private String name;
 
     private Boolean morning;
 

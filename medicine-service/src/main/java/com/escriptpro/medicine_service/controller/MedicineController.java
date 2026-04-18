@@ -29,13 +29,6 @@ public class MedicineController {
         return ResponseEntity.ok(medicineService.searchMedicines(query, type));
     }
 
-    @GetMapping("/search/brands")
-    public ResponseEntity<List<String>> searchBrandSuggestions(
-            @RequestParam String query,
-            @RequestParam(required = false) String type) {
-        return ResponseEntity.ok(medicineService.searchBrandSuggestions(query, type));
-    }
-
     @GetMapping("/search/names")
     public ResponseEntity<List<String>> searchNameSuggestions(
             @RequestParam String query,
@@ -45,7 +38,7 @@ public class MedicineController {
 
     @PostMapping("/suggestions/custom")
     public ResponseEntity<Void> registerCustomSuggestion(@RequestBody MedicineCustomSuggestionRequest request) {
-        medicineService.registerCustomSuggestion(request.getType(), request.getBrand(), request.getMedicineName());
+        medicineService.registerCustomSuggestion(request.getType(), request.getName());
         return ResponseEntity.ok().build();
     }
 }

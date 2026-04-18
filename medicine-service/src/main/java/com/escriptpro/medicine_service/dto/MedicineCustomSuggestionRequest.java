@@ -11,7 +11,5 @@ public class MedicineCustomSuggestionRequest {
 
     private String type;
 
-    private String brand;
-
-    private String medicineName;
+    private String name;
 }
