@@ -142,12 +142,21 @@ jobs:
           kubectl rollout status deployment/api-gateway -n escriptpro
 
       # ---------- FRONTEND ----------
+      # - name: Build & Deploy Frontend
+      #   if: needs.detect-changes.outputs.frontend == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+      #   run: |
+      #     docker build \
+      #       --build-arg VITE_API_BASE_URL=https://escriptpro.nehahaveri.in/api \
+      #       -t amoghlokhande/escriptpro-frontend:${{ github.sha }} ./escriptpro-frontend
+      #     docker push amoghlokhande/escriptpro-frontend:${{ github.sha }}
+      #     kubectl set image deployment/frontend frontend=amoghlokhande/escriptpro-frontend:${{ github.sha }} -n escriptpro
+      #     kubectl rollout status deployment/frontend -n escriptpro
       - name: Build & Deploy Frontend
-        if: needs.detect-changes.outputs.frontend == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: success() || failure()
         run: |
           docker build \
             --build-arg VITE_API_BASE_URL=https://escriptpro.nehahaveri.in/api \
             -t amoghlokhande/escriptpro-frontend:${{ github.sha }} ./escriptpro-frontend
           docker push amoghlokhande/escriptpro-frontend:${{ github.sha }}
           kubectl set image deployment/frontend frontend=amoghlokhande/escriptpro-frontend:${{ github.sha }} -n escriptpro
-          kubectl rollout status deployment/frontend -n escriptpro
+          kubectl rollout status deployment/frontend -n escriptpro --timeout=120s
