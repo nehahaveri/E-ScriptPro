@@ -5,23 +5,35 @@ import com.escriptpro.prescription_service.client.MedicineClient;
 import com.escriptpro.prescription_service.client.PatientClient;
 import com.escriptpro.prescription_service.client.PdfClient;
 import com.escriptpro.prescription_service.dto.CapsuleDTO;
+import com.escriptpro.prescription_service.dto.CreamDTO;
 import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
+import com.escriptpro.prescription_service.dto.GelDTO;
 import com.escriptpro.prescription_service.dto.InjectionDTO;
 import com.escriptpro.prescription_service.dto.LotionDTO;
+import com.escriptpro.prescription_service.dto.OintmentDTO;
 import com.escriptpro.prescription_service.dto.PatientResponseDTO;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
+import com.escriptpro.prescription_service.dto.SuspensionDTO;
 import com.escriptpro.prescription_service.dto.SyrupDTO;
 import com.escriptpro.prescription_service.dto.TabletDTO;
 import com.escriptpro.prescription_service.entity.Capsule;
+import com.escriptpro.prescription_service.entity.Cream;
+import com.escriptpro.prescription_service.entity.Gel;
 import com.escriptpro.prescription_service.entity.Injection;
 import com.escriptpro.prescription_service.entity.Lotion;
+import com.escriptpro.prescription_service.entity.Ointment;
 import com.escriptpro.prescription_service.entity.Prescription;
+import com.escriptpro.prescription_service.entity.Suspension;
 import com.escriptpro.prescription_service.entity.Syrup;
 import com.escriptpro.prescription_service.entity.Tablet;
 import com.escriptpro.prescription_service.repository.CapsuleRepository;
+import com.escriptpro.prescription_service.repository.CreamRepository;
+import com.escriptpro.prescription_service.repository.GelRepository;
 import com.escriptpro.prescription_service.repository.InjectionRepository;
 import com.escriptpro.prescription_service.repository.LotionRepository;
+import com.escriptpro.prescription_service.repository.OintmentRepository;
 import com.escriptpro.prescription_service.repository.PrescriptionRepository;
+import com.escriptpro.prescription_service.repository.SuspensionRepository;
 import com.escriptpro.prescription_service.repository.SyrupRepository;
 import com.escriptpro.prescription_service.repository.TabletRepository;
 import java.io.IOException;
@@ -54,6 +66,10 @@ public class PrescriptionService {
     private final SyrupRepository syrupRepository;
     private final InjectionRepository injectionRepository;
     private final LotionRepository lotionRepository;
+    private final CreamRepository creamRepository;
+    private final OintmentRepository ointmentRepository;
+    private final GelRepository gelRepository;
+    private final SuspensionRepository suspensionRepository;
     private final DoctorClient doctorClient;
     private final PatientClient patientClient;
     private final MedicineClient medicineClient;
@@ -68,6 +84,10 @@ public class PrescriptionService {
             SyrupRepository syrupRepository,
             InjectionRepository injectionRepository,
             LotionRepository lotionRepository,
+            CreamRepository creamRepository,
+            OintmentRepository ointmentRepository,
+            GelRepository gelRepository,
+            SuspensionRepository suspensionRepository,
             DoctorClient doctorClient,
             PatientClient patientClient,
             MedicineClient medicineClient,
@@ -79,6 +99,10 @@ public class PrescriptionService {
         this.syrupRepository = syrupRepository;
         this.injectionRepository = injectionRepository;
         this.lotionRepository = lotionRepository;
+        this.creamRepository = creamRepository;
+        this.ointmentRepository = ointmentRepository;
+        this.gelRepository = gelRepository;
+        this.suspensionRepository = suspensionRepository;
         this.doctorClient = doctorClient;
         this.patientClient = patientClient;
         this.medicineClient = medicineClient;
@@ -221,6 +245,79 @@ public class PrescriptionService {
             });
         }
 
+        if (request.getCreams() != null) {
+            request.getCreams().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "CREAM");
+                Cream entity = new Cream();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setApplicationArea(dto.getApplicationArea());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                creamRepository.save(entity);
+            });
+        }
+
+        if (request.getOintments() != null) {
+            request.getOintments().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "OINTMENT");
+                Ointment entity = new Ointment();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setApplicationArea(dto.getApplicationArea());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                ointmentRepository.save(entity);
+            });
+        }
+
+        if (request.getGels() != null) {
+            request.getGels().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "GEL");
+                Gel entity = new Gel();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setApplicationArea(dto.getApplicationArea());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                gelRepository.save(entity);
+            });
+        }
+
+        if (request.getSuspensions() != null) {
+            request.getSuspensions().forEach(dto -> {
+                softValidateMedicine(dto.getName(), "SUSPENSION");
+                Suspension entity = new Suspension();
+                entity.setPrescription(savedPrescription);
+                entity.setName(dto.getName());
+                entity.setMorning(dto.getMorning());
+                entity.setAfternoon(dto.getAfternoon());
+                entity.setNight(dto.getNight());
+                entity.setScheduleType(resolveMedicineScheduleType(dto.getScheduleType(), dto.getWeeklyDays()));
+                entity.setWeeklyDays(joinWeeklyDays(dto.getWeeklyDays()));
+                entity.setIntakeType(dto.getIntakeType());
+                entity.setIntakeValue(dto.getIntakeValue());
+                entity.setDuration(dto.getDuration());
+                entity.setQuantity(dto.getQuantity());
+                suspensionRepository.save(entity);
+            });
+        }
+
         byte[] pdf = pdfClient.generatePdf(request);
         log.info("Prescription PDF generated successfully. Size={} bytes", pdf != null ? pdf.length : 0);
         return pdf;
@@ -319,6 +416,10 @@ public class PrescriptionService {
         request.setSyrups(buildSyrupDtos(prescriptionId));
         request.setInjections(buildInjectionDtos(prescriptionId));
         request.setLotions(buildLotionDtos(prescriptionId));
+        request.setCreams(buildCreamDtos(prescriptionId));
+        request.setOintments(buildOintmentDtos(prescriptionId));
+        request.setGels(buildGelDtos(prescriptionId));
+        request.setSuspensions(buildSuspensionDtos(prescriptionId));
 
         return pdfClient.generatePdf(request);
     }

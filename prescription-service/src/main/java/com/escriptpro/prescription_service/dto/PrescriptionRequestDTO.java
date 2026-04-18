@@ -60,4 +60,12 @@ public class PrescriptionRequestDTO {
     private List<InjectionDTO> injections;
 
     private List<LotionDTO> lotions;
+
+    private List<CreamDTO> creams;
+
+    private List<OintmentDTO> ointments;
+
+    private List<GelDTO> gels;
+
+    private List<SuspensionDTO> suspensions;
 }

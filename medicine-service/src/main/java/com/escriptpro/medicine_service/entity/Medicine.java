@@ -17,7 +17,8 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "medicine_master",
         indexes = {
-                @Index(name = "idx_medicine_name", columnList = "name")
+                @Index(name = "idx_medicine_name", columnList = "name"),
+                @Index(name = "idx_medicine_type_name", columnList = "type, name")
         }
 )
 @Data
