@@ -568,6 +568,79 @@ public class PrescriptionService {
         return result;
     }
 
+    private List<CreamDTO> buildCreamDtos(Long prescriptionId) {
+        List<CreamDTO> result = new ArrayList<>();
+        creamRepository.findByPrescriptionId(prescriptionId).forEach(cream -> result.add(
+                new CreamDTO(
+                        cream.getName(),
+                        cream.getApplicationArea(),
+                        cream.getMorning(),
+                        cream.getAfternoon(),
+                        cream.getNight(),
+                        resolveMedicineScheduleType(cream.getScheduleType(), splitWeeklyDays(cream.getWeeklyDays())),
+                        splitWeeklyDays(cream.getWeeklyDays()),
+                        cream.getDuration(),
+                        cream.getQuantity()
+                )
+        ));
+        return result;
+    }
+
+    private List<OintmentDTO> buildOintmentDtos(Long prescriptionId) {
+        List<OintmentDTO> result = new ArrayList<>();
+        ointmentRepository.findByPrescriptionId(prescriptionId).forEach(ointment -> result.add(
+                new OintmentDTO(
+                        ointment.getName(),
+                        ointment.getApplicationArea(),
+                        ointment.getMorning(),
+                        ointment.getAfternoon(),
+                        ointment.getNight(),
+                        resolveMedicineScheduleType(ointment.getScheduleType(), splitWeeklyDays(ointment.getWeeklyDays())),
+                        splitWeeklyDays(ointment.getWeeklyDays()),
+                        ointment.getDuration(),
+                        ointment.getQuantity()
+                )
+        ));
+        return result;
+    }
+
+    private List<GelDTO> buildGelDtos(Long prescriptionId) {
+        List<GelDTO> result = new ArrayList<>();
+        gelRepository.findByPrescriptionId(prescriptionId).forEach(gel -> result.add(
+                new GelDTO(
+                        gel.getName(),
+                        gel.getApplicationArea(),
+                        gel.getMorning(),
+                        gel.getAfternoon(),
+                        gel.getNight(),
+                        resolveMedicineScheduleType(gel.getScheduleType(), splitWeeklyDays(gel.getWeeklyDays())),
+                        splitWeeklyDays(gel.getWeeklyDays()),
+                        gel.getDuration(),
+                        gel.getQuantity()
+                )
+        ));
+        return result;
+    }
+
+    private List<SuspensionDTO> buildSuspensionDtos(Long prescriptionId) {
+        List<SuspensionDTO> result = new ArrayList<>();
+        suspensionRepository.findByPrescriptionId(prescriptionId).forEach(suspension -> result.add(
+                new SuspensionDTO(
+                        suspension.getName(),
+                        suspension.getMorning(),
+                        suspension.getAfternoon(),
+                        suspension.getNight(),
+                        resolveMedicineScheduleType(suspension.getScheduleType(), splitWeeklyDays(suspension.getWeeklyDays())),
+                        splitWeeklyDays(suspension.getWeeklyDays()),
+                        suspension.getIntakeType(),
+                        suspension.getIntakeValue(),
+                        suspension.getDuration(),
+                        suspension.getQuantity()
+                )
+        ));
+        return result;
+    }
+
     private void validateXrayFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "X-ray image is required");
