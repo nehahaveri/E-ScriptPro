@@ -104,6 +104,55 @@ const emptyLotion = {
   quantity: '',
 }
 
+const emptyCream = {
+  name: '',
+  applicationArea: '',
+  morning: false,
+  afternoon: false,
+  night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  duration: '',
+  quantity: '',
+}
+
+const emptyOintment = {
+  name: '',
+  applicationArea: '',
+  morning: false,
+  afternoon: false,
+  night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  duration: '',
+  quantity: '',
+}
+
+const emptyGel = {
+  name: '',
+  applicationArea: '',
+  morning: false,
+  afternoon: false,
+  night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  duration: '',
+  quantity: '',
+}
+
+const emptySuspension = {
+  name: '',
+  morning: false,
+  afternoon: false,
+  night: false,
+  scheduleType: 'DAILY',
+  weeklyDays: [],
+  intakeType: 'TEASPOON',
+  intakeValue: '',
+  duration: '',
+  quantity: '',
+}
+
 const weekDayOptions = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
 const medicineTypeOptions = [
@@ -112,6 +161,10 @@ const medicineTypeOptions = [
   { value: 'SYRUP', label: 'Syrup' },
   { value: 'INJECTION', label: 'Injection' },
   { value: 'LOTION', label: 'Lotion' },
+  { value: 'CREAM', label: 'Cream' },
+  { value: 'OINTMENT', label: 'Ointment' },
+  { value: 'GEL', label: 'Gel' },
+  { value: 'SUSPENSION', label: 'Suspension' },
 ]
 
 const createEmptyMedicineDraft = (type) => {
@@ -119,6 +172,10 @@ const createEmptyMedicineDraft = (type) => {
   if (type === 'SYRUP') return { ...emptySyrup }
   if (type === 'INJECTION') return { ...emptyInjection }
   if (type === 'LOTION') return { ...emptyLotion }
+  if (type === 'CREAM') return { ...emptyCream }
+  if (type === 'OINTMENT') return { ...emptyOintment }
+  if (type === 'GEL') return { ...emptyGel }
+  if (type === 'SUSPENSION') return { ...emptySuspension }
   return { ...emptyTablet }
 }
 
@@ -204,7 +261,7 @@ const summarizeMedicine = (type, medicine) => {
       .join(' | ')
   }
 
-  if (type === 'LOTION') {
+  if (type === 'LOTION' || type === 'CREAM' || type === 'OINTMENT' || type === 'GEL') {
     const timings = ['morning', 'afternoon', 'night']
       .filter((key) => medicine[key])
       .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
@@ -215,6 +272,33 @@ const summarizeMedicine = (type, medicine) => {
       formatScheduleLabel(medicine.scheduleType),
       medicine.duration ? `${medicine.duration} day(s)` : null,
       medicine.quantity ? `${medicine.quantity} unit(s)` : null,
+    ]
+      .filter(Boolean)
+      .join(' • ')
+
+    return [medicine.name || 'No name', timings, extras]
+      .filter(Boolean)
+      .join(' | ')
+
+  }
+
+  if (type === 'SUSPENSION') {
+    const timings = ['morning', 'afternoon', 'night']
+      .filter((key) => medicine[key])
+      .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
+      .join(', ')
+
+    const weeklyDays =
+      medicine.scheduleType === 'WEEKLY' && Array.isArray(medicine.weeklyDays)
+        ? medicine.weeklyDays.map(formatWeeklyDay).join(', ')
+        : ''
+
+    const extras = [
+      formatScheduleLabel(medicine.scheduleType),
+      medicine.duration ? `${medicine.duration} ${medicine.scheduleType === 'WEEKLY' ? 'week(s)' : 'day(s)'}` : null,
+      weeklyDays || null,
+      formatSyrupIntake(medicine.intakeType, medicine.intakeValue) || null,
+      medicine.quantity ? `${medicine.quantity} ml` : null,
     ]
       .filter(Boolean)
       .join(' • ')
@@ -427,6 +511,10 @@ function Dashboard() {
   const [syrups, setSyrups] = useState([])
   const [injections, setInjections] = useState([])
   const [lotions, setLotions] = useState([])
+  const [creams, setCreams] = useState([])
+  const [ointments, setOintments] = useState([])
+  const [gels, setGels] = useState([])
+  const [suspensions, setSuspensions] = useState([])
   const [suggestions, setSuggestions] = useState({})
   const suggestionCacheRef = useRef(new Map())
   const [isListening, setIsListening] = useState(false)
@@ -1047,6 +1135,14 @@ function Dashboard() {
       setSyrups((prev) => [...prev, finalDraft])
     } else if (selectedMedicineType === 'LOTION') {
       setLotions((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'CREAM') {
+      setCreams((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'OINTMENT') {
+      setOintments((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'GEL') {
+      setGels((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'SUSPENSION') {
+      setSuspensions((prev) => [...prev, finalDraft])
     } else {
       setInjections((prev) => [...prev, finalDraft])
     }
@@ -1072,6 +1168,14 @@ function Dashboard() {
       setSyrups((prev) => [...prev, finalDraft])
     } else if (selectedMedicineType === 'LOTION') {
       setLotions((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'CREAM') {
+      setCreams((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'OINTMENT') {
+      setOintments((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'GEL') {
+      setGels((prev) => [...prev, finalDraft])
+    } else if (selectedMedicineType === 'SUSPENSION') {
+      setSuspensions((prev) => [...prev, finalDraft])
     }
     setSuggestions((prev) => ({
       ...prev,
@@ -1139,6 +1243,22 @@ function Dashboard() {
       setLotions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
       return
     }
+    if (type === 'CREAM') {
+      setCreams((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
+    if (type === 'OINTMENT') {
+      setOintments((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
+    if (type === 'GEL') {
+      setGels((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
+    if (type === 'SUSPENSION') {
+      setSuspensions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+      return
+    }
     setInjections((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
@@ -1151,6 +1271,10 @@ function Dashboard() {
     SYRUP: syrups.filter((item) => hasMedicineValue('SYRUP', item)).length,
     INJECTION: injections.filter((item) => hasMedicineValue('INJECTION', item)).length,
     LOTION: lotions.filter((item) => hasMedicineValue('LOTION', item)).length,
+    CREAM: creams.filter((item) => hasMedicineValue('CREAM', item)).length,
+    OINTMENT: ointments.filter((item) => hasMedicineValue('OINTMENT', item)).length,
+    GEL: gels.filter((item) => hasMedicineValue('GEL', item)).length,
+    SUSPENSION: suspensions.filter((item) => hasMedicineValue('SUSPENSION', item)).length,
     }
 
     const submitPrescription = async (event) => {
@@ -1195,6 +1319,10 @@ function Dashboard() {
             weeklyDays: normalizeWeeklyDays(injection.scheduleType, injection.weeklyDays),
           })),
         lotions: lotions.filter((l) => l.name),
+        creams: creams.filter((c) => c.name),
+        ointments: ointments.filter((o) => o.name),
+        gels: gels.filter((g) => g.name),
+        suspensions: suspensions.filter((s) => s.name),
       }
 
       payload.tablets = payload.tablets.map((tablet) => ({
@@ -1216,6 +1344,27 @@ function Dashboard() {
       payload.lotions = payload.lotions.map((lotion) => ({
         ...lotion,
         weeklyDays: normalizeWeeklyDays(lotion.scheduleType, lotion.weeklyDays),
+      }))
+
+      payload.creams = payload.creams.map((cream) => ({
+        ...cream,
+        weeklyDays: normalizeWeeklyDays(cream.scheduleType, cream.weeklyDays),
+      }))
+
+      payload.ointments = payload.ointments.map((ointment) => ({
+        ...ointment,
+        weeklyDays: normalizeWeeklyDays(ointment.scheduleType, ointment.weeklyDays),
+      }))
+
+      payload.gels = payload.gels.map((gel) => ({
+        ...gel,
+        weeklyDays: normalizeWeeklyDays(gel.scheduleType, gel.weeklyDays),
+      }))
+
+      payload.suspensions = payload.suspensions.map((suspension) => ({
+        ...suspension,
+        weeklyDays: normalizeWeeklyDays(suspension.scheduleType, suspension.weeklyDays),
+        intakeValue: suspension.intakeValue === '' ? null : Number(suspension.intakeValue),
       }))
 
       if (prescriptionMode === 'PATIENT' && !selectedPatientId) {
@@ -1255,7 +1404,7 @@ function Dashboard() {
     const stats = [
     { label: 'Patients', value: patients.length, icon: <User className="h-4 w-4 text-cyan-700" /> },
     { label: 'Prescriptions', value: prescriptionHistory.length, icon: <FileText className="h-4 w-4 text-indigo-700" /> },
-    { label: 'Medicines', value: tablets.length + capsules.length + syrups.length + injections.length + lotions.length, icon: <Pill className="h-4 w-4 text-emerald-700" /> },
+    { label: 'Medicines', value: tablets.length + capsules.length + syrups.length + injections.length + lotions.length + creams.length + ointments.length + gels.length + suspensions.length, icon: <Pill className="h-4 w-4 text-emerald-700" /> },
     ]
 
     const openDatePicker = (inputRef) => {
@@ -2191,6 +2340,10 @@ function Dashboard() {
                             <option value="SYRUP">Syrup</option>
                             <option value="INJECTION">Injection</option>
                             <option value="LOTION">Lotion</option>
+                            <option value="CREAM">Cream</option>
+                            <option value="OINTMENT">Ointment</option>
+                            <option value="GEL">Gel</option>
+                            <option value="SUSPENSION">Suspension</option>
                           </select>
                         </div>
                       </div>
@@ -2461,6 +2614,98 @@ function Dashboard() {
                           </div>
                         </div>
                       )}
+                      {selectedMedicineType === 'SUSPENSION' && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={Boolean(medicineDraft.morning)} onChange={(e) => updateMedicineDraft('morning', e.target.checked)} />
+                              <Sun className="h-3 w-3 text-yellow-500" /> Morning
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={Boolean(medicineDraft.afternoon)} onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)} />
+                              <CloudSun className="h-3 w-3 text-orange-400" /> Afternoon
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={Boolean(medicineDraft.night)} onChange={(e) => updateMedicineDraft('night', e.target.checked)} />
+                              <Moon className="h-3 w-3 text-indigo-500" /> Night
+                            </label>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                            <select
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.scheduleType || 'DAILY'}
+                              onChange={(e) => updateMedicineDraft('scheduleType', e.target.value)}
+                            >
+                              <option value="DAILY">Daily</option>
+                              <option value="WEEKLY">Weekly</option>
+                            </select>
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.duration ?? ''}
+                              onChange={(e) => updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))}
+                              placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
+                            />
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.quantity ?? ''}
+                              onChange={(e) => updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))}
+                              placeholder="Quantity (ml)"
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            <select
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.intakeType || 'TEASPOON'}
+                              onChange={(e) => updateMedicineDraft('intakeType', e.target.value)}
+                            >
+                              <option value="TEASPOON">Teaspoon</option>
+                              <option value="QUANTITY_PER_INTAKE">Quantity (per intake)</option>
+                            </select>
+                            <input
+                              type="number"
+                              min="1"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.intakeValue ?? ''}
+                              onChange={(e) => updateMedicineDraft('intakeValue', e.target.value)}
+                              placeholder={medicineDraft.intakeType === 'QUANTITY_PER_INTAKE' ? 'Quantity per intake (ml)' : 'Teaspoon count'}
+                            />
+                          </div>
+                          {medicineDraft.scheduleType === 'WEEKLY' && (
+                            <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'AFTER_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('AFTER_FOOD')}
+                            >
+                              <Cookie className="h-3 w-3" /> After Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'BEFORE_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('BEFORE_FOOD')}
+                            >
+                              <Timer className="h-3 w-3" /> Before Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'EMPTY_STOMACH' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('EMPTY_STOMACH')}
+                            >
+                              <Hash className="h-3 w-3" /> Empty Stomach
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {selectedMedicineType === 'INJECTION' && (
                         <div className="space-y-2">
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -2481,7 +2726,7 @@ function Dashboard() {
                           )}
                         </div>
                       )}
-                      {selectedMedicineType === 'LOTION' && (
+                      {(selectedMedicineType === 'LOTION' || selectedMedicineType === 'CREAM' || selectedMedicineType === 'OINTMENT' || selectedMedicineType === 'GEL') && (
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <label className="inline-flex items-center gap-1">
@@ -2553,7 +2798,7 @@ function Dashboard() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
                       <MedicineList
                         title="Tablets"
                         items={tablets}
@@ -2583,6 +2828,30 @@ function Dashboard() {
                         items={lotions}
                         type="LOTION"
                         onRemove={(index) => removeMedicine('LOTION', index)}
+                      />
+                      <MedicineList
+                        title="Creams"
+                        items={creams}
+                        type="CREAM"
+                        onRemove={(index) => removeMedicine('CREAM', index)}
+                      />
+                      <MedicineList
+                        title="Ointments"
+                        items={ointments}
+                        type="OINTMENT"
+                        onRemove={(index) => removeMedicine('OINTMENT', index)}
+                      />
+                      <MedicineList
+                        title="Gels"
+                        items={gels}
+                        type="GEL"
+                        onRemove={(index) => removeMedicine('GEL', index)}
+                      />
+                      <MedicineList
+                        title="Suspensions"
+                        items={suspensions}
+                        type="SUSPENSION"
+                        onRemove={(index) => removeMedicine('SUSPENSION', index)}
                       />
                     </div>
 

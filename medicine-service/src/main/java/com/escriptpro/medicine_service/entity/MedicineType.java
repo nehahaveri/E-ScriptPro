@@ -5,5 +5,9 @@ public enum MedicineType {
     CAPSULE,
     SYRUP,
     INJECTION,
-    LOTION
+    LOTION,
+    CREAM,
+    OINTMENT,
+    GEL,
+    SUSPENSION
 }

@@ -37,6 +37,10 @@ public class PrescriptionRequestDTO {
     private List<SyrupDTO> syrups;
     private List<InjectionDTO> injections;
     private List<LotionDTO> lotions;
+    private List<CreamDTO> creams;
+    private List<OintmentDTO> ointments;
+    private List<GelDTO> gels;
+    private List<SuspensionDTO> suspensions;
 
     public Long getPatientId() {
         return patientId;
@@ -300,5 +304,37 @@ public class PrescriptionRequestDTO {
 
     public void setLotions(List<LotionDTO> lotions) {
         this.lotions = lotions;
+    }
+
+    public List<CreamDTO> getCreams() {
+        return creams;
+    }
+
+    public void setCreams(List<CreamDTO> creams) {
+        this.creams = creams;
+    }
+
+    public List<OintmentDTO> getOintments() {
+        return ointments;
+    }
+
+    public void setOintments(List<OintmentDTO> ointments) {
+        this.ointments = ointments;
+    }
+
+    public List<GelDTO> getGels() {
+        return gels;
+    }
+
+    public void setGels(List<GelDTO> gels) {
+        this.gels = gels;
+    }
+
+    public List<SuspensionDTO> getSuspensions() {
+        return suspensions;
+    }
+
+    public void setSuspensions(List<SuspensionDTO> suspensions) {
+        this.suspensions = suspensions;
     }
 }
