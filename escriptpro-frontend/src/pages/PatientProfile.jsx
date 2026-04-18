@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { CalendarDays, Clock3 } from 'lucide-react'
+import { CalendarDays, Clock3, User, Phone, Ruler } from 'lucide-react'
 import api from '../services/api'
 
 const createPatientForm = (patient) => ({
@@ -342,9 +342,9 @@ function PatientProfile() {
       <section className="mx-auto max-w-6xl space-y-5">
         <div className="glass-panel section-chroma flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
-            <p className="glass-kicker">Patient Record</p>
-            <h1 className="glass-heading text-3xl">Patient Profile</h1>
-            <p className="glass-copy text-sm">Patient ID: {resolvePatientNumber(patient, '-')}</p>
+            <p className="glass-kicker text-[10px]">Patient Record</p>
+            <h1 className="glass-heading text-xl">Patient Profile</h1>
+            <p className="glass-copy text-xs">Patient ID: {resolvePatientNumber(patient, '-')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -396,32 +396,37 @@ function PatientProfile() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[360px,1fr]">
           <section className="panel-card space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Editable Details</p>
-              <h2 className="text-2xl text-slate-900">Patient Information</h2>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Editable Details</p>
+              <h2 className="text-lg text-slate-900">Patient Information</h2>
             </div>
 
             <div className="glass-well section-chroma-soft p-4">
-              <p className="text-lg font-semibold text-slate-900">{patient?.name}</p>
-              <p className="mt-1 text-sm text-slate-600">
-                {patient?.gender} • {patient?.age ?? '-'} years • {patient?.mobile}
+              <p className="text-sm font-semibold text-slate-900">{patient?.name}</p>
+              <p className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+                <User className="h-3 w-3 text-slate-400" />
+                {patient?.gender} • {patient?.age ?? '-'} years
+                <Phone className="ml-2 h-3 w-3 text-slate-400" />
+                {patient?.mobile}
               </p>
               {(patient?.height || patient?.weight) && (
-                <p className="mt-2 text-sm text-slate-600">
-                  {patient?.height ? `Height ${patient.height} cm` : null}
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-600">
+                  <Ruler className="h-3 w-3 text-slate-400" />
+                  {patient?.height ? `${patient.height} cm` : null}
                   {patient?.height && patient?.weight ? ' • ' : ''}
-                  {patient?.weight ? `Weight ${patient.weight} kg` : null}
+                  {patient?.weight ? `${patient.weight} kg` : null}
                 </p>
               )}
               {patient?.appointmentDate && (
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-600">
+                  <CalendarDays className="h-3 w-3 text-slate-400" />
                   Appointment: {formatAppointmentLabel(patient.appointmentDate, patient.appointmentTime)}
                 </p>
               )}
               {(patient?.appointmentStatus || patient?.appointmentReminderMinutes != null) && (
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-1.5 text-xs text-slate-600">
                   Status: {patient.appointmentStatus || 'BOOKED'}
                   {patient.appointmentReminderMinutes != null
-                    ? ` • Reminder ${patient.appointmentReminderMinutes} minute(s) before`
+                    ? ` • Reminder ${patient.appointmentReminderMinutes} min before`
                     : ''}
                 </p>
               )}
@@ -561,8 +566,8 @@ function PatientProfile() {
           <section className="panel-card space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Medical Timeline</p>
-                <h2 className="text-2xl text-slate-900">Prescription History</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Medical Timeline</p>
+                <h2 className="text-lg text-slate-900">Prescription History</h2>
               </div>
               <span className="glass-pill text-sm text-slate-500">
                 {sortedHistory.length} record(s)
@@ -720,9 +725,9 @@ function HistoryField({ label, value }) {
   }
 
   return (
-    <div className="glass-well px-3 py-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{value}</p>
+    <div className="glass-well px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-0.5 whitespace-pre-wrap text-xs text-slate-700">{value}</p>
     </div>
   )
 }

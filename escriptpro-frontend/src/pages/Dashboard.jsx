@@ -15,6 +15,28 @@ import {
   UserRound,
   Users,
   X,
+  Pill,
+  Droplets,
+  Syringe,
+  Sun,
+  Moon,
+  CloudSun,
+  GlassWater,
+  Cookie,
+  Timer,
+  Hash,
+  Building2,
+  MapPin,
+  GraduationCap,
+  Briefcase,
+  Phone,
+  User,
+  ImageIcon,
+  PenTool,
+  Save,
+  Plus,
+  Trash2,
+  ChevronDown,
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -827,6 +849,11 @@ function Dashboard() {
                 return ''
               }
 
+              if (field === 'combined') {
+                const b = item.brand || ''
+                const n = item.medicineName || item.syrupName || ''
+                return b && n ? `${b} — ${n}` : b || n
+              }
               return field === 'brand' ? item.brand : item.medicineName
             })
             .filter(Boolean)
@@ -1000,6 +1027,51 @@ function Dashboard() {
     setMedicineDraft(createEmptyMedicineDraft(selectedMedicineType))
   }
 
+  const handleFoodInstructionSelect = (instruction) => {
+    if (!hasMedicineValue(selectedMedicineType, medicineDraft)) {
+      updateMedicineDraft('instruction', instruction)
+      return
+    }
+    const finalDraft = { ...medicineDraft, instruction }
+    if (selectedMedicineType === 'TABLET') {
+      setTablets((prev) => [
+        ...prev,
+        { ...finalDraft, weeklyDays: normalizeWeeklyDays(finalDraft.scheduleType, finalDraft.weeklyDays) },
+      ])
+    } else if (selectedMedicineType === 'SYRUP') {
+      setSyrups((prev) => [
+        ...prev,
+        { ...finalDraft, weeklyDays: normalizeWeeklyDays(finalDraft.scheduleType, finalDraft.weeklyDays) },
+      ])
+    }
+    setSuggestions((prev) => ({
+      ...prev,
+      [`${selectedMedicineType.toLowerCase()}-draft-combined`]: [],
+    }))
+    setMedicineDraft(createEmptyMedicineDraft(selectedMedicineType))
+  }
+
+  const handleInjectionScheduleAndAdd = (scheduleType) => {
+    updateMedicineSchedule(scheduleType)
+    if (!hasMedicineValue('INJECTION', medicineDraft)) return
+    const finalDraft = {
+      ...medicineDraft,
+      scheduleType,
+      daily: scheduleType === 'DAILY',
+      weeklyOnce: scheduleType === 'WEEKLY',
+      alternateDay: scheduleType === 'ALTERNATE_DAY',
+    }
+    setInjections((prev) => [
+      ...prev,
+      { ...finalDraft, weeklyDays: normalizeWeeklyDays(finalDraft.scheduleType, finalDraft.weeklyDays) },
+    ])
+    setSuggestions((prev) => ({
+      ...prev,
+      ['injection-draft-combined']: [],
+    }))
+    setMedicineDraft(createEmptyMedicineDraft('INJECTION'))
+  }
+
   const uploadXray = async (file) => {
     if (!file) {
       return
@@ -1035,15 +1107,16 @@ function Dashboard() {
     setInjections((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  const brandSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-brand`
-  const nameSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-name`
-  const medicineCounts = {
+    const brandSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-brand`
+    const nameSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-name`
+    const combinedSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-combined`
+    const medicineCounts = {
     TABLET: tablets.filter((item) => hasMedicineValue('TABLET', item)).length,
     SYRUP: syrups.filter((item) => hasMedicineValue('SYRUP', item)).length,
     INJECTION: injections.filter((item) => hasMedicineValue('INJECTION', item)).length,
-  }
+    }
 
-  const submitPrescription = async (event) => {
+    const submitPrescription = async (event) => {
     event.preventDefault()
     setError('')
     try {
@@ -1121,22 +1194,22 @@ function Dashboard() {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save prescription.')
     }
-  }
+    }
 
-  const logout = () => {
+    const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
     localStorage.removeItem('doctorId')
     window.location.href = '/'
-  }
+    }
 
-  const stats = [
-    { label: 'Patients', value: patients.length },
-    { label: 'Prescriptions', value: prescriptionHistory.length },
-    { label: 'Medicines', value: tablets.length + syrups.length + injections.length },
-  ]
+    const stats = [
+    { label: 'Patients', value: patients.length, icon: <User className="h-4 w-4 text-cyan-700" /> },
+    { label: 'Prescriptions', value: prescriptionHistory.length, icon: <FileText className="h-4 w-4 text-indigo-700" /> },
+    { label: 'Medicines', value: tablets.length + syrups.length + injections.length, icon: <Pill className="h-4 w-4 text-emerald-700" /> },
+    ]
 
-  const openDatePicker = (inputRef) => {
+    const openDatePicker = (inputRef) => {
     const input = inputRef?.current
     if (!input) {
       return
@@ -1145,9 +1218,9 @@ function Dashboard() {
     if (typeof input.showPicker === 'function') {
       input.showPicker()
     }
-  }
+    }
 
-  const appointmentDays = useMemo(() => {
+    const appointmentDays = useMemo(() => {
     const dates = prescriptionHistory
       .map((item) => item.followUpDate || item.visitDate)
       .filter(Boolean)
@@ -1190,7 +1263,7 @@ function Dashboard() {
     }
 
     return items
-  }, [prescriptionHistory, patients])
+    }, [prescriptionHistory, patients])
 
   if (loading) {
     return <main className="app-shell flex items-center justify-center text-slate-600">Loading dashboard...</main>
@@ -2052,273 +2125,300 @@ function Dashboard() {
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[220px,1fr]">
-                      <div className="space-y-1">
-                        <label htmlFor="medicine-type" className="text-sm font-medium text-slate-700">
-                          Medicine Type
-                        </label>
-                        <select
-                          id="medicine-type"
-                          className="glass-input"
-                          value={selectedMedicineType}
-                          onChange={(e) => handleMedicineTypeChange(e.target.value)}
-                        >
-                          {medicineTypeOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                    <div className="glass-well section-chroma-soft p-4 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Pill className="h-4 w-4 text-cyan-700" />
+                          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Medicine Builder</span>
+                        </div>
+                        <div>
+                          <select
+                            className="glass-input text-xs py-1 px-2"
+                            value={selectedMedicineType}
+                            onChange={(e) => handleMedicineTypeChange(e.target.value)}
+                          >
+                            <option value="TABLET">Tablet</option>
+                            <option value="SYRUP">Syrup</option>
+                            <option value="INJECTION">Injection</option>
+                          </select>
+                        </div>
                       </div>
-
-                      <div className="glass-well section-chroma-soft space-y-4 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Medicine Builder</p>
-                            <h3 className="text-sm font-semibold text-slate-900">
-                              Add {medicineTypeOptions.find((option) => option.value === selectedMedicineType)?.label}
-                            </h3>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        <AutocompleteInput
+                          value={
+                            selectedMedicineType === 'SYRUP'
+                              ? medicineDraft.brand
+                                ? `${medicineDraft.brand} — ${medicineDraft.syrupName || ''}`.trim()
+                                : medicineDraft.syrupName
+                              : medicineDraft.brand
+                                ? `${medicineDraft.brand} — ${medicineDraft.medicineName || ''}`.trim()
+                                : medicineDraft.medicineName
+                          }
+                          placeholder={`Search ${selectedMedicineType.toLowerCase()} (brand or name)`}
+                          suggestions={suggestions[combinedSuggestionKey] || []}
+                          onChange={(value) => {
+                            // Split value into brand and name if possible
+                            const [brand, ...rest] = value.split('—').map((v) => v.trim())
+                            if (selectedMedicineType === 'SYRUP') {
+                              updateMedicineDraft('brand', brand)
+                              updateMedicineDraft('syrupName', rest.join('—'))
+                            } else {
+                              updateMedicineDraft('brand', brand)
+                              updateMedicineDraft('medicineName', rest.join('—'))
+                            }
+                            fetchMedicineSuggestions(selectedMedicineType, combinedSuggestionKey, value, 'combined')
+                          }}
+                          onSelect={(value) => {
+                            const [brand, ...rest] = value.split('—').map((v) => v.trim())
+                            if (selectedMedicineType === 'SYRUP') {
+                              updateMedicineDraft('brand', brand)
+                              updateMedicineDraft('syrupName', rest.join('—'))
+                            } else {
+                              updateMedicineDraft('brand', brand)
+                              updateMedicineDraft('medicineName', rest.join('—'))
+                            }
+                            setSuggestions((prev) => ({ ...prev, [combinedSuggestionKey]: [] }))
+                          }}
+                        />
+                      </div>
+                      {selectedMedicineType === 'TABLET' && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.morning)}
+                                onChange={(e) => updateMedicineDraft('morning', e.target.checked)}
+                              />
+                              <Sun className="h-3 w-3 text-yellow-500" /> Morning
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.afternoon)}
+                                onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)}
+                              />
+                              <CloudSun className="h-3 w-3 text-orange-400" /> Afternoon
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.night)}
+                                onChange={(e) => updateMedicineDraft('night', e.target.checked)}
+                              />
+                              <Moon className="h-3 w-3 text-indigo-500" /> Night
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.withWater)}
+                                onChange={(e) => updateMedicineDraft('withWater', e.target.checked)}
+                              />
+                              <GlassWater className="h-3 w-3 text-cyan-600" /> Water
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.chew)}
+                                onChange={(e) => updateMedicineDraft('chew', e.target.checked)}
+                              />
+                              <Cookie className="h-3 w-3 text-amber-600" /> Chew
+                            </label>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                            <select
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.scheduleType || 'DAILY'}
+                              onChange={(e) => updateMedicineDraft('scheduleType', e.target.value)}
+                            >
+                              <option value="DAILY">Daily</option>
+                              <option value="WEEKLY">Weekly</option>
+                            </select>
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.duration ?? ''}
+                              onChange={(e) =>
+                                updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))
+                              }
+                              placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
+                            />
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.quantity ?? ''}
+                              onChange={(e) =>
+                                updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
+                              }
+                              placeholder="Quantity"
+                            />
                           </div>
                           {medicineDraft.scheduleType === 'WEEKLY' && (
-                            <span className="glass-pill text-cyan-800">
-                              Weekly plan: {medicineDraft.weeklyDays.length || 0} day(s) selected
-                            </span>
+                            <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'AFTER_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('AFTER_FOOD')}
+                            >
+                              <Cookie className="h-3 w-3" /> After Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'BEFORE_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('BEFORE_FOOD')}
+                            >
+                              <Timer className="h-3 w-3" /> Before Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'EMPTY_STOMACH' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('EMPTY_STOMACH')}
+                            >
+                              <Hash className="h-3 w-3" /> Empty Stomach
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {selectedMedicineType === 'SYRUP' && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.morning)}
+                                onChange={(e) => updateMedicineDraft('morning', e.target.checked)}
+                              />
+                              <Sun className="h-3 w-3 text-yellow-500" /> Morning
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.afternoon)}
+                                onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)}
+                              />
+                              <CloudSun className="h-3 w-3 text-orange-400" /> Afternoon
+                            </label>
+                            <label className="inline-flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(medicineDraft.night)}
+                                onChange={(e) => updateMedicineDraft('night', e.target.checked)}
+                              />
+                              <Moon className="h-3 w-3 text-indigo-500" /> Night
+                            </label>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                            <select
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.scheduleType || 'DAILY'}
+                              onChange={(e) => updateMedicineDraft('scheduleType', e.target.value)}
+                            >
+                              <option value="DAILY">Daily</option>
+                              <option value="WEEKLY">Weekly</option>
+                            </select>
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.duration ?? ''}
+                              onChange={(e) =>
+                                updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))
+                              }
+                              placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
+                            />
+                            <input
+                              type="number"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.quantity ?? ''}
+                              onChange={(e) =>
+                                updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
+                              }
+                              placeholder="Quantity (ml)"
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            <select
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.intakeType || 'TEASPOON'}
+                              onChange={(e) => updateMedicineDraft('intakeType', e.target.value)}
+                            >
+                              <option value="TEASPOON">Teaspoon</option>
+                              <option value="QUANTITY_PER_INTAKE">Quantity (per intake)</option>
+                            </select>
+                            <input
+                              type="number"
+                              min="1"
+                              className="glass-input px-2 py-1 text-xs"
+                              value={medicineDraft.intakeValue ?? ''}
+                              onChange={(e) => updateMedicineDraft('intakeValue', e.target.value)}
+                              placeholder={
+                                medicineDraft.intakeType === 'QUANTITY_PER_INTAKE'
+                                  ? 'Quantity per intake (ml)'
+                                  : 'Teaspoon count'
+                              }
+                            />
+                          </div>
+                          {medicineDraft.scheduleType === 'WEEKLY' && (
+                            <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'AFTER_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('AFTER_FOOD')}
+                            >
+                              <Cookie className="h-3 w-3" /> After Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'BEFORE_FOOD' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('BEFORE_FOOD')}
+                            >
+                              <Timer className="h-3 w-3" /> Before Food
+                            </button>
+                            <button
+                              type="button"
+                              className={`glass-pill flex items-center gap-1 px-3 py-1 text-xs font-medium ${
+                                medicineDraft.instruction === 'EMPTY_STOMACH' ? 'bg-cyan-700 text-white' : 'bg-white text-cyan-700 border border-cyan-200'
+                              }`}
+                              onClick={() => handleFoodInstructionSelect('EMPTY_STOMACH')}
+                            >
+                              <Hash className="h-3 w-3" /> Empty Stomach
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {selectedMedicineType === 'INJECTION' && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            <label className="flex flex-col gap-1 text-xs text-slate-700">
+                              <span className="font-medium">Schedule</span>
+                              <select
+                                className="glass-input px-2 py-1 text-xs"
+                                value={medicineDraft.scheduleType || 'DAILY'}
+                                onChange={(e) => handleInjectionScheduleAndAdd(e.target.value)}
+                              >
+                                <option value="DAILY">Daily</option>
+                                <option value="WEEKLY">Weekly</option>
+                              </select>
+                            </label>
+                          </div>
+                          {medicineDraft.scheduleType === 'WEEKLY' && (
+                            <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
                           )}
                         </div>
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                          <AutocompleteInput
-                            value={medicineDraft.brand}
-                            placeholder={`${selectedMedicineType} Brand`}
-                            suggestions={suggestions[brandSuggestionKey] || []}
-                            onChange={(value) => {
-                              updateMedicineDraft('brand', value)
-                              fetchMedicineSuggestions(selectedMedicineType, brandSuggestionKey, value, 'brand')
-                            }}
-                            onSelect={(value) => {
-                              updateMedicineDraft('brand', value)
-                              setSuggestions((prev) => ({ ...prev, [brandSuggestionKey]: [] }))
-                            }}
-                          />
-                          <AutocompleteInput
-                            value={medicineDraft[getMedicineNameField(selectedMedicineType)] || ''}
-                            placeholder={`${selectedMedicineType} Name`}
-                            suggestions={suggestions[nameSuggestionKey] || []}
-                            onChange={(value) => {
-                              updateMedicineDraft(getMedicineNameField(selectedMedicineType), value)
-                              fetchMedicineSuggestions(selectedMedicineType, nameSuggestionKey, value, 'name')
-                            }}
-                            onSelect={(value) => {
-                              updateMedicineDraft(getMedicineNameField(selectedMedicineType), value)
-                              setSuggestions((prev) => ({ ...prev, [nameSuggestionKey]: [] }))
-                            }}
-                          />
-                        </div>
-
-                        {selectedMedicineType === 'TABLET' && (
-                          <div className="space-y-3">
-                            <div className="flex flex-wrap items-center gap-3 text-xs">
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.morning)}
-                                  onChange={(e) => updateMedicineDraft('morning', e.target.checked)}
-                                />
-                                Morning
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.afternoon)}
-                                  onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)}
-                                />
-                                Afternoon
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.night)}
-                                  onChange={(e) => updateMedicineDraft('night', e.target.checked)}
-                                />
-                                Night
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.withWater)}
-                                  onChange={(e) => updateMedicineDraft('withWater', e.target.checked)}
-                                />
-                                With water
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.chew)}
-                                  onChange={(e) => updateMedicineDraft('chew', e.target.checked)}
-                                />
-                                Chew
-                              </label>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,160px)_minmax(0,1fr)_minmax(0,1fr)]">
-                              <select
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.scheduleType || 'DAILY'}
-                                onChange={(e) => updateMedicineSchedule(e.target.value)}
-                              >
-                                <option value="DAILY">Daily</option>
-                                <option value="WEEKLY">Weekly</option>
-                              </select>
-                              <input
-                                type="number"
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.duration ?? ''}
-                                onChange={(e) =>
-                                  updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))
-                                }
-                                placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
-                              />
-                              <input
-                                type="number"
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.quantity ?? ''}
-                                onChange={(e) =>
-                                  updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
-                                }
-                                placeholder="Quantity"
-                              />
-                            </div>
-                            {medicineDraft.scheduleType === 'WEEKLY' && (
-                              <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
-                            )}
-                            <div className="grid grid-cols-1 gap-2">
-                              <select
-                                className="glass-input w-full px-3 py-2 md:max-w-[220px]"
-                                value={medicineDraft.instruction || 'AFTER_FOOD'}
-                                onChange={(e) => updateMedicineDraft('instruction', e.target.value)}
-                              >
-                                <option value="AFTER_FOOD">After Food</option>
-                                <option value="BEFORE_FOOD">Before Food</option>
-                                <option value="EMPTY_STOMACH">Empty Stomach</option>
-                              </select>
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedMedicineType === 'SYRUP' && (
-                          <div className="space-y-3">
-                            <div className="flex flex-wrap items-center gap-3 text-xs">
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.morning)}
-                                  onChange={(e) => updateMedicineDraft('morning', e.target.checked)}
-                                />
-                                Morning
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.afternoon)}
-                                  onChange={(e) => updateMedicineDraft('afternoon', e.target.checked)}
-                                />
-                                Afternoon
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(medicineDraft.night)}
-                                  onChange={(e) => updateMedicineDraft('night', e.target.checked)}
-                                />
-                                Night
-                              </label>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,160px)_minmax(0,1fr)_minmax(0,1fr)]">
-                              <select
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.scheduleType || 'DAILY'}
-                                onChange={(e) => updateMedicineSchedule(e.target.value)}
-                              >
-                                <option value="DAILY">Daily</option>
-                                <option value="WEEKLY">Weekly</option>
-                              </select>
-                              <input
-                                type="number"
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.duration ?? ''}
-                                onChange={(e) =>
-                                  updateMedicineDraft('duration', e.target.value === '' ? '' : Number(e.target.value))
-                                }
-                                placeholder={medicineDraft.scheduleType === 'WEEKLY' ? 'Duration (weeks)' : 'Duration (days)'}
-                              />
-                              <input
-                                type="number"
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.quantity ?? ''}
-                                onChange={(e) =>
-                                  updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
-                                }
-                                placeholder="Quantity (ml)"
-                              />
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-                              <select
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.intakeType || 'TEASPOON'}
-                                onChange={(e) => updateMedicineDraft('intakeType', e.target.value)}
-                              >
-                                <option value="TEASPOON">Teaspoon</option>
-                                <option value="QUANTITY_PER_INTAKE">Quantity (per intake)</option>
-                              </select>
-                              <input
-                                type="number"
-                                min="1"
-                                className="glass-input px-3 py-2"
-                                value={medicineDraft.intakeValue ?? ''}
-                                onChange={(e) => updateMedicineDraft('intakeValue', e.target.value)}
-                                placeholder={
-                                  medicineDraft.intakeType === 'QUANTITY_PER_INTAKE'
-                                    ? 'Quantity per intake (ml)'
-                                    : 'Teaspoon count'
-                                }
-                              />
-                            </div>
-                            {medicineDraft.scheduleType === 'WEEKLY' && (
-                              <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
-                            )}
-                          </div>
-                        )}
-
-                        {selectedMedicineType === 'INJECTION' && (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                              <label className="flex flex-col gap-1 text-sm text-slate-700">
-                                <span className="text-xs font-medium text-slate-600">Schedule</span>
-                                <select
-                                  className="glass-input px-3 py-2"
-                                  value={medicineDraft.scheduleType || 'DAILY'}
-                                  onChange={(e) => updateMedicineSchedule(e.target.value)}
-                                >
-                                  <option value="DAILY">Daily</option>
-                                  <option value="WEEKLY">Weekly</option>
-                                </select>
-                              </label>
-                            </div>
-
-                            {medicineDraft.scheduleType === 'WEEKLY' && (
-                              <WeekdaySelector selectedDays={medicineDraft.weeklyDays} onToggle={toggleWeeklyDay} />
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={addMedicine}
-                            className="button-glass px-4 py-2"
-                          >
-                            Add Medicine
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
