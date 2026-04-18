@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react'
 import api from '../services/api'
 
 function ResetPassword() {
@@ -39,82 +40,79 @@ function ResetPassword() {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <p className="auth-kicker">Password Reset</p>
-        <h1 className="auth-title">Reset Password</h1>
-        <p className="auth-copy">Use the reset token you received to set a new password.</p>
+        <div className="auth-header-row">
+          <p className="auth-kicker">Password Reset</p>
+          <span className="auth-icon-badge">
+            <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
+          </span>
+        </div>
+        <h1 className="auth-title text-xl sm:text-2xl md:text-[1.8rem]">Reset Password</h1>
+        <p className="auth-copy text-xs sm:text-sm">Use the reset token to set a new password.</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div>
-            <label className="field-label" htmlFor="token">
-              Reset Token
-            </label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
             <input
               id="token"
               type="text"
               value={token}
               onChange={(event) => setToken(event.target.value)}
               required
-              className="input-luxe"
+              className="input-luxe pl-10 text-sm"
               placeholder="Paste reset token"
             />
           </div>
 
-          <div>
-            <label className="field-label" htmlFor="newPassword">
-              New Password
-            </label>
-            <input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              required
-              className="input-luxe"
-              placeholder="Minimum 12 characters"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <KeyRound className="h-4 w-4" />
+              </span>
+              <input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                required
+                className="input-luxe pl-10 text-sm"
+                placeholder="New password"
+              />
+            </div>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
+                <KeyRound className="h-4 w-4" />
+              </span>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                required
+                className="input-luxe pl-10 text-sm"
+                placeholder="Confirm password"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="field-label" htmlFor="confirmPassword">
-              Confirm New Password
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              className="input-luxe"
-              placeholder="Confirm new password"
-            />
-          </div>
-
-          {error && <p className="alert-error">{error}</p>}
-
+          {error && <p className="alert-error text-xs">{error}</p>}
           {success && (
-            <p className="alert-success">
-              {success} You can now{' '}
-              <Link to="/" className="underline font-medium">
-                login
-              </Link>
-              .
+            <p className="alert-success text-xs">
+              {success}{' '}
+              <Link to="/" className="underline font-medium">Login now</Link>
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="button-primary w-full"
-          >
-            {loading ? 'Resetting password...' : 'Reset password'}
+          <button type="submit" disabled={loading} className="button-primary w-full text-sm">
+            {loading ? 'Resetting...' : 'Reset password'}
+            {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </button>
         </form>
 
-        <p className="mt-5 text-sm text-slate-600">
+        <p className="mt-4 text-center text-xs text-white/72">
           Back to{' '}
-          <Link to="/" className="font-medium text-slate-900 underline">
-            Login
-          </Link>
+          <Link to="/" className="font-medium text-white underline underline-offset-4">Login</Link>
         </p>
       </section>
     </main>

@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ActivitySquare, BellDot, CalendarDays, Clock3, LogOut, Search, UserRound } from 'lucide-react'
+import {
+  ActivitySquare,
+  BellDot,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  FileText,
+  LogOut,
+  Menu,
+  Search,
+  Stethoscope,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react'
 import api from '../services/api'
 
 const emptyTablet = {
@@ -262,10 +277,10 @@ const GOOGLE_PENDING_ROUTE_KEY = 'googleCalendarPendingRoute'
 const calendarWeekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const serviceSections = [
-  { key: 'prescriptions', title: 'Prescription Studio', shortTitle: 'Prescription', description: 'Medicines, notes, and PDF output', badge: 'RX' },
-  { key: 'patients', title: 'Patients', shortTitle: 'Patients', description: 'Records, search, and patient selection', badge: 'PT' },
-  { key: 'appointments', title: 'Appointments', shortTitle: 'Calendar', description: 'Calendar reminders and follow-ups', badge: 'CL' },
-  { key: 'profile', title: 'Doctor Profile', shortTitle: 'Profile', description: 'Clinic identity and printed details', badge: 'DP' },
+  { key: 'prescriptions', title: 'Prescriptions', shortTitle: 'Rx', description: 'Medicines & PDF', badge: 'RX', Icon: FileText },
+  { key: 'patients', title: 'Patients', shortTitle: 'Patients', description: 'Records & search', badge: 'PT', Icon: Users },
+  { key: 'appointments', title: 'Appointments', shortTitle: 'Calendar', description: 'Reminders & follow-ups', badge: 'CL', Icon: CalendarDays },
+  { key: 'profile', title: 'Profile', shortTitle: 'Profile', description: 'Clinic identity', badge: 'DP', Icon: Stethoscope },
 ]
 
 const isValidServiceSection = (value) => serviceSections.some((section) => section.key === value)
@@ -277,6 +292,8 @@ function Dashboard() {
   const storedRole = (localStorage.getItem('role') || 'DOCTOR').toUpperCase()
   const storedDoctorId = localStorage.getItem('doctorId')
   const isReceptionist = storedRole === 'RECEPTIONIST'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [doctor, setDoctor] = useState(null)
   const [doctorForm, setDoctorForm] = useState({
     name: '',
@@ -360,64 +377,59 @@ function Dashboard() {
     : serviceSections
 
   const renderAppointmentsPanel = (className = '') => (
-    <section className={`glass-panel section-chroma p-4 ${className}`.trim()}>
+    <section className={`glass-panel section-chroma p-3 ${className}`.trim()}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#4c7fe2]">Calendar</p>
-          <h3 className="mt-1 text-lg font-semibold text-[#20304f]">Appointments</h3>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4c7fe2]">Calendar</p>
+          <h3 className="mt-0.5 text-sm font-semibold text-[#20304f]">Appointments</h3>
         </div>
-        <CalendarDays className="h-5 w-5 text-[#4c7fe2]" />
+        <CalendarDays className="h-4 w-4 text-[#4c7fe2]" />
       </div>
-      <div className="mt-3 grid grid-cols-7 gap-2">
+      <div className="mt-2 grid grid-cols-7 gap-1.5">
         {calendarWeekdayLabels.map((label) => (
-          <span
-            key={label}
-            className="text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7d8ca8]"
-          >
-            {label}
-          </span>
+          <span key={label} className="text-center text-[9px] font-bold uppercase tracking-[0.1em] text-[#7d8ca8]">{label}</span>
         ))}
       </div>
-      <div className="mt-3 grid grid-cols-7 gap-2">
+      <div className="mt-2 grid grid-cols-7 gap-1.5">
         {appointmentDays.map((item) =>
           item.isEmpty ? (
-            <div key={item.key} className="min-h-14 rounded-2xl" />
+            <div key={item.key} className="min-h-10 rounded-xl" />
           ) : (
             <button
               key={item.key}
               type="button"
               onClick={() => loadFollowUpAppointments(item.date)}
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 transition ${
+              className={`flex min-h-10 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 transition ${
                 selectedCalendarDate === item.date
-                  ? 'bg-white/82 ring-1 ring-[#4c7fe2]/24 shadow-[0_10px_22px_rgba(76,127,226,0.12)]'
+                  ? 'bg-white/82 ring-1 ring-[#4c7fe2]/24 shadow-sm'
                   : item.isToday
                     ? 'bg-[rgba(76,127,226,0.14)] hover:bg-[rgba(76,127,226,0.2)]'
                     : 'bg-white/58 hover:bg-white/76'
               }`}
             >
-              <span className="text-base font-semibold text-[#20304f]">{item.day}</span>
-              <span className={`h-2 w-2 rounded-full ${item.hasAlert ? 'bg-[#4c7fe2]' : 'bg-transparent'}`} />
+              <span className="text-xs font-semibold text-[#20304f]">{item.day}</span>
+              <span className={`h-1.5 w-1.5 rounded-full ${item.hasAlert ? 'bg-[#4c7fe2]' : 'bg-transparent'}`} />
             </button>
           )
         )}
       </div>
       {selectedCalendarDate && (
-        <div className="glass-well section-chroma-soft mt-4 p-4">
-          <div className="flex items-center justify-between gap-3">
+        <div className="glass-well section-chroma-soft mt-3 p-3">
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#3A7BD5]">Reminders</p>
-              <p className="text-sm font-medium text-[#1D2D50]">{formatDisplayDate(selectedCalendarDate)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#3A7BD5]">Reminders</p>
+              <p className="text-xs font-medium text-[#1D2D50]">{formatDisplayDate(selectedCalendarDate)}</p>
             </div>
-            <span className="glass-pill text-xs font-medium text-[#6f7f9a]">
-              {calendarAppointments.length} reminder(s)
+            <span className="glass-pill text-[10px] font-medium text-[#6f7f9a]">
+              {calendarAppointments.length}
             </span>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {appointmentsLoading && (
-              <p className="text-sm text-slate-500">Loading appointments...</p>
+              <p className="text-xs text-slate-500">Loading...</p>
             )}
             {!appointmentsLoading && calendarAppointments.length === 0 && (
-              <p className="text-sm text-slate-500">No patient appointments or follow-ups scheduled for this date.</p>
+              <p className="text-xs text-slate-500">No appointments for this date.</p>
             )}
             {!appointmentsLoading &&
               calendarAppointments.map((appointment) => (
@@ -428,30 +440,29 @@ function Dashboard() {
                     setSelectedPatientId(appointment.patientId)
                     selectService('patients')
                   }}
-                  className="glass-well section-chroma-soft flex min-h-11 w-full items-center justify-between px-3 py-3 text-left transition hover:border-[#4c7fe2]/30 hover:bg-white/82"
+                  className="glass-well section-chroma-soft flex min-h-9 w-full items-center justify-between px-2.5 py-2 text-left transition hover:border-[#4c7fe2]/30 hover:bg-white/82"
                 >
                   <div>
-                    <p className="text-sm font-medium text-[#1D2D50]">
+                    <p className="text-xs font-medium text-[#1D2D50]">
                       {appointment.patientName} #{appointment.patientNumber ?? appointment.patientId}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      {appointment.eventType === 'APPOINTMENT' ? 'Appointment' : 'Follow-up'}
+                    <p className="text-[10px] text-slate-500">
+                      {appointment.eventType === 'APPOINTMENT' ? 'Appt' : 'Follow-up'}
                       {appointment.appointmentTime ? ` • ${formatDisplayTime(appointment.appointmentTime)}` : ''}
                       {appointment.patientMobile ? ` • ${appointment.patientMobile}` : ''}
-                      {appointment.diagnosis ? ` • ${appointment.diagnosis}` : ''}
                     </p>
                   </div>
-                  <Clock3 className="h-4 w-4 text-slate-400" />
+                  <Clock3 className="h-3.5 w-3.5 text-slate-400" />
                 </button>
               ))}
           </div>
         </div>
       )}
       {!appointmentDays.some((item) => !item.isEmpty && item.hasAlert) && (
-        <div className="glass-well section-chroma-soft mt-4 border border-dashed border-slate-200/70 px-4 py-5 text-center">
-          <BellDot className="mx-auto h-8 w-8 text-[#b8c7df]" />
-          <p className="mt-3 text-base font-medium text-[#20304f]">No Appointments Found</p>
-          <p className="mt-1 text-sm text-[#6f7f9a]">Patient appointments and follow-ups will appear here with notification dots.</p>
+        <div className="glass-well section-chroma-soft mt-3 border border-dashed border-slate-200/70 px-3 py-4 text-center">
+          <BellDot className="mx-auto h-6 w-6 text-[#b8c7df]" />
+          <p className="mt-2 text-xs font-medium text-[#20304f]">No Appointments</p>
+          <p className="mt-0.5 text-[10px] text-[#6f7f9a]">Appointments and follow-ups will appear here.</p>
         </div>
       )}
     </section>
@@ -1186,42 +1197,125 @@ function Dashboard() {
   }
 
   return (
-    <main className="app-shell relative overflow-hidden p-3 sm:p-4 lg:p-6">
+    <main className="app-shell relative overflow-hidden p-2 sm:p-3 lg:p-4">
       <span className="liquid-orb left-[-6rem] top-16 h-44 w-44 bg-[radial-gradient(circle,_rgba(132,231,255,0.72),_rgba(132,231,255,0))]" />
       <span className="liquid-orb right-[-4rem] top-28 h-40 w-40 bg-[radial-gradient(circle,_rgba(86,145,255,0.46),_rgba(86,145,255,0))]" />
       <span className="liquid-orb bottom-16 right-[18%] h-52 w-52 bg-[radial-gradient(circle,_rgba(122,229,214,0.4),_rgba(122,229,214,0))]" />
-      <section className="mx-auto max-w-7xl space-y-4 lg:space-y-5">
-        <header className="glass-panel grid gap-4 px-4 py-4 sm:px-5 xl:grid-cols-[1fr,minmax(320px,540px),auto] xl:items-center">
-          <div>
-            <p className="glass-kicker">E-ScriptPro</p>
-            <h1 className="glass-heading text-xl font-semibold sm:text-2xl">
-              {isReceptionist ? 'Receptionist Dashboard' : 'Medical Professional Dashboard'}
+
+      {/* Mobile sidebar overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 xl:hidden" onClick={() => setMobileMenuOpen(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <aside
+            className="absolute left-0 top-0 h-full w-72 overflow-y-auto bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">E-ScriptPro</p>
+              <button onClick={() => setMobileMenuOpen(false)} className="rounded-full p-1.5 text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mb-4 rounded-2xl bg-gradient-to-br from-[#0b3d91] to-[#3a7bd5] p-4 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+                {isReceptionist ? 'Reception' : 'Console'}
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold">{doctor?.name || doctorForm.name || 'Doctor'}</p>
+              <p className="mt-0.5 truncate text-[11px] text-white/70">
+                {doctor?.specialization || doctorForm.specialization || 'Set up your profile'}
+              </p>
+            </div>
+            <nav className="space-y-1">
+              {availableServiceSections.map((section) => {
+                const active = activeService === section.key
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() => { selectService(section.key); setMobileMenuOpen(false) }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-medium transition ${
+                      active
+                        ? 'bg-[#3a7bd5]/10 text-[#1d2d50]'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                  >
+                    <section.Icon className={`h-4 w-4 ${active ? 'text-[#3a7bd5]' : 'text-slate-400'}`} />
+                    {section.title}
+                  </button>
+                )
+              })}
+            </nav>
+            <div className="mt-6 space-y-1.5">
+              {stats.map((stat) => (
+                <div key={stat.label} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs">
+                  <span className="text-slate-500">{stat.label}</span>
+                  <span className="font-semibold text-slate-800">{stat.value}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-medium text-red-600 transition hover:bg-red-100"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Logout
+            </button>
+          </aside>
+        </div>
+      )}
+
+      <section className="mx-auto max-w-[1440px] space-y-3 lg:space-y-4">
+        {/* Header */}
+        <header className="glass-panel flex items-center gap-3 px-3 py-3 sm:px-4">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="rounded-lg p-2 text-slate-500 hover:bg-white/60 xl:hidden"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">E-ScriptPro</p>
+            <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+              {isReceptionist ? 'Receptionist Dashboard' : 'Dashboard'}
             </h1>
           </div>
           <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              searchPatients()
-            }}
-            className="glass-well flex min-h-11 items-center gap-3 px-4 py-3"
+            onSubmit={(event) => { event.preventDefault(); searchPatients() }}
+            className="glass-well hidden min-h-9 flex-1 items-center gap-2 px-3 py-2 sm:flex lg:max-w-sm"
           >
-            <Search className="h-5 w-5 text-[#3A7BD5]" />
+            <Search className="h-4 w-4 text-[#3A7BD5]" />
             <input
               value={patientQuery}
               onChange={(e) => setPatientQuery(e.target.value)}
-              className="w-full bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400"
-              placeholder="Search patients, mobile, or ID"
+              className="w-full bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400"
+              placeholder="Search patients..."
             />
           </form>
           <button
             type="button"
             onClick={logout}
-            className="button-glass min-w-[120px]"
+            className="button-glass hidden min-w-0 px-3 py-2 text-xs xl:inline-flex"
           >
-            <LogOut className="mr-2 h-4 w-4" />
+            <LogOut className="mr-1.5 h-3.5 w-3.5" />
             Logout
           </button>
         </header>
+
+        {/* Mobile search */}
+        <form
+          onSubmit={(event) => { event.preventDefault(); searchPatients() }}
+          className="glass-well flex min-h-9 items-center gap-2 px-3 py-2 sm:hidden"
+        >
+          <Search className="h-4 w-4 text-[#3A7BD5]" />
+          <input
+            value={patientQuery}
+            onChange={(e) => setPatientQuery(e.target.value)}
+            className="w-full bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400"
+            placeholder="Search patients..."
+          />
+        </form>
 
         {error && (
           <p className="glass-well border border-red-200/80 px-3 py-2 text-sm text-red-700">
@@ -1229,59 +1323,97 @@ function Dashboard() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px,minmax(0,1fr)]">
-          <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-            <div className="glass-panel section-highlight overflow-hidden p-5 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white">
-                {isReceptionist ? 'Reception Desk' : 'Practice Console'}
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold">{doctor?.name || doctorForm.name || 'Doctor'}</h2>
-              <p className="mt-1 text-base text-white">
-                {isReceptionist
-                  ? `Working with ${doctor?.name || 'assigned doctor'}`
-                  : (doctor?.specialization || doctorForm.specialization || 'Complete your clinic identity to print polished prescriptions.')}
-              </p>
-              <div className="mt-5 space-y-2">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex min-h-11 items-center justify-between gap-3 rounded-[26px] border border-white/45 bg-[rgba(8,37,92,0.28)] px-3 py-3 text-white backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]"
-                  >
-                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/90">
-                      {stat.label}
-                    </p>
-                    <p className="shrink-0 text-lg font-semibold leading-none text-white">{stat.value}</p>
+        <div className={`grid grid-cols-1 gap-3 ${sidebarCollapsed ? 'xl:grid-cols-[64px,minmax(0,1fr)]' : 'xl:grid-cols-[240px,minmax(0,1fr)]'} transition-all duration-300`}>
+          <aside className="hidden space-y-3 xl:block xl:sticky xl:top-4 xl:self-start">
+            {/* Collapse toggle */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((p) => !p)}
+              className="glass-well mx-auto flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:text-slate-600"
+            >
+              {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+            </button>
+
+            {/* Doctor info card */}
+            <div className={`glass-panel section-highlight overflow-hidden text-white ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
+              {sidebarCollapsed ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
+                    {(doctor?.name || 'D').charAt(0)}
                   </div>
-                ))}
-              </div>
+                  {stats.map((stat) => (
+                    <div key={stat.label} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xs font-semibold" title={stat.label}>
+                      {stat.value}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+                    {isReceptionist ? 'Reception Desk' : 'Practice Console'}
+                  </p>
+                  <h2 className="mt-2 truncate text-base font-semibold">{doctor?.name || doctorForm.name || 'Doctor'}</h2>
+                  <p className="mt-0.5 truncate text-[11px] text-white/70">
+                    {isReceptionist
+                      ? `Working with ${doctor?.name || 'assigned doctor'}`
+                      : (doctor?.specialization || doctorForm.specialization || 'Complete your profile')}
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    {stats.map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="flex items-center justify-between gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-2 text-white"
+                      >
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.06em] text-white/80">{stat.label}</p>
+                        <p className="shrink-0 text-sm font-semibold">{stat.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
-            <nav className="glass-panel section-chroma hidden p-3 xl:block">
-              <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#4c7fe2]">Services</p>
-              <div className="space-y-2">
+            {/* Nav */}
+            <nav className={`glass-panel section-chroma ${sidebarCollapsed ? 'p-2' : 'p-2.5'}`}>
+              {!sidebarCollapsed && (
+                <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#4c7fe2]">Services</p>
+              )}
+              <div className="space-y-1">
                 {availableServiceSections.map((section) => {
                   const active = activeService === section.key
-                  return (
+                  return sidebarCollapsed ? (
                     <button
                       key={section.key}
                       type="button"
                       onClick={() => selectService(section.key)}
-                      className={`flex w-full items-center gap-3 rounded-[24px] border px-3 py-3 text-left transition ${
+                      title={section.title}
+                      className={`flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition ${
                         active
-                          ? 'border-white/80 bg-white/78 shadow-[0_16px_35px_rgba(8,145,178,0.16)]'
-                          : 'border-white/60 bg-white/52 hover:border-cyan-200 hover:bg-white/72'
+                          ? 'bg-[#2d7da8] text-white shadow-md'
+                          : 'bg-white/60 text-slate-500 hover:bg-white hover:text-slate-700'
                       }`}
                     >
-                      <span
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[11px] font-semibold ${
-                          active ? 'bg-[#2d7da8] text-white shadow-[0_12px_24px_rgba(45,125,168,0.28)]' : 'bg-white text-[#41516f]'
-                        }`}
-                      >
-                        {section.badge}
+                      <section.Icon className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      key={section.key}
+                      type="button"
+                      onClick={() => selectService(section.key)}
+                      className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition ${
+                        active
+                          ? 'border-white/80 bg-white/78 shadow-sm'
+                          : 'border-transparent bg-white/40 hover:bg-white/60'
+                      }`}
+                    >
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                        active ? 'bg-[#2d7da8] text-white shadow-sm' : 'bg-white/80 text-slate-500'
+                      }`}>
+                        <section.Icon className="h-3.5 w-3.5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-[#20304f]">{section.title}</span>
-                        <span className="block truncate text-[11px] text-[#6f7f9a]">{section.description}</span>
+                        <span className="block truncate text-xs font-semibold text-[#20304f]">{section.title}</span>
+                        <span className="block truncate text-[10px] text-slate-400">{section.description}</span>
                       </span>
                     </button>
                   )
@@ -1289,11 +1421,11 @@ function Dashboard() {
               </div>
             </nav>
 
-            {!isReceptionist && renderAppointmentsPanel('hidden xl:block')}
+            {!isReceptionist && !sidebarCollapsed && renderAppointmentsPanel('block')}
           </aside>
 
-          <div className="space-y-4">
-            <div className="flex gap-2 overflow-x-auto pb-1 xl:hidden">
+          <div className="space-y-3">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 xl:hidden">
               {availableServiceSections.map((section) => {
                 const active = activeService === section.key
                 return (
@@ -1301,12 +1433,13 @@ function Dashboard() {
                     key={section.key}
                     type="button"
                     onClick={() => selectService(section.key)}
-                    className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
                       active
                         ? 'border-white/70 bg-white/70 text-cyan-800'
-                        : 'border-white/60 bg-white/40 text-slate-600'
+                        : 'border-white/60 bg-white/40 text-slate-500'
                     }`}
                   >
+                    <section.Icon className="h-3 w-3" />
                     {section.shortTitle}
                   </button>
                 )
@@ -1314,20 +1447,17 @@ function Dashboard() {
             </div>
 
             {activeService === 'profile' && (
-              <section className="glass-panel-strong section-chroma p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <section className="glass-panel-strong section-chroma p-3 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                   <div>
-                    <p className="glass-kicker">Doctor Profile</p>
-                    <h2 className="glass-heading text-xl font-semibold">Printed identity and clinic details</h2>
+                    <p className="glass-kicker text-[10px]">Doctor Profile</p>
+                    <h2 className="glass-heading text-base font-semibold">Clinic identity & printed details</h2>
                     {doctor?.id && (
-                      <p className="mt-2 inline-flex items-center rounded-full border border-cyan-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-900 shadow-[0_10px_24px_rgba(93,146,255,0.16)]">
+                      <p className="mt-1.5 inline-flex items-center rounded-full border border-cyan-200/80 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-900">
                         Doctor ID: {doctor.id}
                       </p>
                     )}
                   </div>
-                  <p className="glass-pill text-slate-600">
-                    Used in PDF header when doctor details are enabled
-                  </p>
                 </div>
 
                 <form onSubmit={saveProfile} className="mt-5 grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.1fr),320px]">
@@ -1441,14 +1571,14 @@ function Dashboard() {
             )}
 
             {activeService === 'patients' && (
-              <section className="glass-panel-strong section-chroma p-4 sm:p-5 space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <section className="glass-panel-strong section-chroma p-3 sm:p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="glass-kicker">Patient Desk</p>
-                    <h2 className="glass-heading text-xl font-semibold">Patients</h2>
+                    <p className="glass-kicker text-[10px]">Patient Desk</p>
+                    <h2 className="glass-heading text-base font-semibold">Patients</h2>
                   </div>
-                  <p className="glass-pill text-slate-600">
-                    {patients.length} patient record(s)
+                  <p className="glass-pill text-[10px] text-slate-600">
+                    {patients.length} record(s)
                   </p>
                 </div>
 
@@ -1753,26 +1883,23 @@ function Dashboard() {
             )}
 
             {activeService === 'appointments' && !isReceptionist && (
-              <section className="glass-panel-strong section-chroma p-4 sm:p-5">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <section className="glass-panel-strong section-chroma p-3 sm:p-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                   <div>
-                    <p className="glass-kicker">Appointment Desk</p>
-                    <h2 className="glass-heading text-xl font-semibold">Calendar and reminder timeline</h2>
+                    <p className="glass-kicker text-[10px]">Appointment Desk</p>
+                    <h2 className="glass-heading text-base font-semibold">Calendar & reminders</h2>
                   </div>
-                  <p className="glass-pill text-slate-600">
-                    Connected to patient appointments and prescription follow-ups
-                  </p>
                 </div>
                 {renderAppointmentsPanel()}
               </section>
             )}
 
             {activeService === 'prescriptions' && (
-              <section className="glass-panel-strong section-chroma p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <section className="glass-panel-strong section-chroma p-3 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                   <div>
-                    <p className="glass-kicker">Prescription Studio</p>
-                    <h2 className="glass-heading text-xl font-semibold">Build and export a clean prescription</h2>
+                    <p className="glass-kicker text-[10px]">Prescription Studio</p>
+                    <h2 className="glass-heading text-base font-semibold">Build & export prescription</h2>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {selectedPatient ? (
