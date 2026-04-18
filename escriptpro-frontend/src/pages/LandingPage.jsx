@@ -55,20 +55,30 @@ function useIsMobile() {
   return m
 }
 
-/* cursor blob */
+/* cursor blob — desktop only */
 function CursorBlob() {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const sx = useSpring(x, { stiffness: 30, damping: 28 })
   const sy = useSpring(y, { stiffness: 30, damping: 28 })
+  const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setIsMobile(mq.matches)
+    const handler = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  useEffect(() => {
+    if (isMobile) return
     const move = (e) => { x.set(e.clientX - 220); y.set(e.clientY - 220) }
     window.addEventListener('mousemove', move, { passive: true })
     return () => window.removeEventListener('mousemove', move)
-  }, [x, y])
+  }, [x, y, isMobile])
+  if (isMobile) return null
   return (
     <motion.div
-      style={{ x: sx, y: sy }}
+      style={{ x: sx, y: sy, willChange: 'transform' }}
       className="pointer-events-none fixed z-0 h-[440px] w-[440px] rounded-full opacity-[0.05] blur-[120px]"
       aria-hidden
     >
@@ -113,6 +123,7 @@ function MouseParallax({ children, className = '', intensity = 20, rotateIntensi
         rotateY,
         perspective: 800,
         transformStyle: 'preserve-3d',
+        willChange: 'transform',
       }}
       className={className}
     >
@@ -131,8 +142,9 @@ function Reveal({ children, className = '', id, delay = 0, y = 50 }) {
       id={id}
       initial={{ opacity: 0, y }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 1, delay, ease }}
+      transition={{ duration: 0.7, delay, ease }}
       className={className}
+      style={{ willChange: 'transform, opacity' }}
     >
       {children}
     </motion.div>
@@ -260,7 +272,7 @@ function Hero() {
           <motion.span
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease }}
+            transition={{ duration: 0.6, delay: 0.15, ease }}
             className="inline-flex items-center gap-2 rounded-full border border-[#1d2d50]/[0.06] bg-white/60 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#3a7bd5] backdrop-blur-lg"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-[#3a7bd5] animate-pulse" />
@@ -270,7 +282,7 @@ function Hero() {
           <motion.h1
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.1, delay: 0.4, ease }}
+            transition={{ duration: 0.8, delay: 0.3, ease }}
             className="mt-7 text-[clamp(2.2rem,5.5vw,4.8rem)] font-extrabold leading-[1.04] tracking-[-0.04em] text-[#1d2d50]"
           >
             Prescriptions,
@@ -283,7 +295,7 @@ function Hero() {
           <motion.p
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.6, ease }}
+            transition={{ duration: 0.7, delay: 0.45, ease }}
             className="mx-auto mt-6 max-w-lg text-[clamp(0.95rem,1.6vw,1.1rem)] leading-[1.75] text-slate-500 lg:mx-0"
           >
             The modern clinic platform that lets you manage patients, write prescriptions, and generate
@@ -293,7 +305,7 @@ function Hero() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 0.8, ease }}
+            transition={{ duration: 0.7, delay: 0.6, ease }}
             className="mt-9 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
           >
             <Link to="/signup"
@@ -310,7 +322,7 @@ function Hero() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 1, ease }}
+            transition={{ duration: 0.7, delay: 0.75, ease }}
             className="mt-7 flex items-center justify-center gap-5 text-[11px] text-slate-400 lg:justify-start"
           >
             <span className="flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> No credit card</span>
@@ -323,7 +335,7 @@ function Hero() {
           style={{ y: yImg, scale: imgScale, rotate: imgRotate }}
           initial={{ opacity: 0, x: 60, scale: 0.9 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ duration: 1.4, delay: 0.5, ease }}
+          transition={{ duration: 1, delay: 0.4, ease }}
           className="relative flex-1"
         >
           <div className="relative mx-auto w-full max-w-[480px]">

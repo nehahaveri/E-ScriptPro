@@ -519,6 +519,22 @@ function Dashboard() {
   const suggestionCacheRef = useRef(new Map())
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark'
+    }
+    return false
+  })
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [darkMode])
 
   const selectedPatientFromList = useMemo(
     () => patients.find((p) => p.id === selectedPatientId) || null,
@@ -1464,7 +1480,36 @@ function Dashboard() {
     }, [prescriptionHistory, patients])
 
   if (loading) {
-    return <main className="app-shell flex items-center justify-center text-slate-600">Loading dashboard...</main>
+    return (
+      <main className="app-shell relative overflow-hidden p-2 sm:p-3 lg:p-4">
+        <div className="mx-auto max-w-7xl space-y-4">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="skeleton h-8 w-40" />
+            <div className="flex gap-2">
+              <div className="skeleton h-8 w-8 rounded-full" />
+              <div className="skeleton h-8 w-20 rounded-full" />
+            </div>
+          </div>
+          {/* Content skeleton */}
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[240px,minmax(0,1fr)]">
+            <div className="hidden space-y-3 xl:block">
+              <div className="skeleton h-32 rounded-[30px]" />
+              <div className="skeleton h-48 rounded-[30px]" />
+            </div>
+            <div className="space-y-3">
+              <div className="skeleton h-12 rounded-[22px]" />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton h-28 rounded-[24px]" />
+                ))}
+              </div>
+              <div className="skeleton h-64 rounded-[30px]" />
+            </div>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -1548,7 +1593,7 @@ function Dashboard() {
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">E-ScriptPro</p>
-            <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+            <h1 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
               {isReceptionist ? 'Receptionist Dashboard' : 'Dashboard'}
             </h1>
           </div>
@@ -1560,10 +1605,18 @@ function Dashboard() {
             <input
               value={patientQuery}
               onChange={(e) => setPatientQuery(e.target.value)}
-              className="w-full bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-xs text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
               placeholder="Search patients..."
             />
           </form>
+          <button
+            type="button"
+            onClick={() => setDarkMode((d) => !d)}
+            className="rounded-full p-2.5 text-slate-500 transition hover:bg-white/60 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3a7bd5]/30 dark:text-slate-300 dark:hover:bg-white/10"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           <button
             type="button"
             onClick={logout}
@@ -1600,7 +1653,7 @@ function Dashboard() {
             <button
               type="button"
               onClick={() => setSidebarCollapsed((p) => !p)}
-              className="glass-well mx-auto flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:text-slate-600"
+              className="glass-well mx-auto flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:text-slate-600 hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3a7bd5]/30"
             >
               {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
             </button>
@@ -1733,59 +1786,83 @@ function Dashboard() {
 
                 <form onSubmit={saveProfile} className="mt-5 grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.1fr),320px]">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <input
-                      className="glass-input md:col-span-2"
-                      value={doctor?.id ? `Doctor ID: ${doctor.id}` : 'Doctor ID will appear here'}
-                      readOnly
-                    />
-                    <input
-                      className="glass-input"
-                      placeholder="Name"
-                      value={doctorForm.name}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, name: e.target.value }))}
-                    />
-                    <input
-                      className="glass-input"
-                      placeholder="Phone"
-                      value={doctorForm.phone}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, phone: e.target.value }))}
-                    />
-                    <input
-                      className="glass-input"
-                      placeholder="Clinic Name"
-                      value={doctorForm.clinicName}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, clinicName: e.target.value }))}
-                    />
-                    <input
-                      className="glass-input"
-                      placeholder="Specialization"
-                      value={doctorForm.specialization}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, specialization: e.target.value }))}
-                    />
-                    <input
-                      className="glass-input md:col-span-2"
-                      placeholder="Locality / Address"
-                      value={doctorForm.locality}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, locality: e.target.value }))}
-                    />
-                    <input
-                      className="glass-input"
-                      placeholder="Education (MBBS/MD/BAMS...)"
-                      value={doctorForm.education}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, education: e.target.value }))}
-                    />
-                    <input
-                      type="number"
-                      className="glass-input"
-                      placeholder="Experience (years)"
-                      value={doctorForm.experience}
-                      onChange={(e) => setDoctorForm((p) => ({ ...p, experience: e.target.value }))}
-                    />
+                    <div className="relative md:col-span-2">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Hash className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        value={doctor?.id ? `Doctor ID: ${doctor.id}` : 'Doctor ID will appear here'}
+                        readOnly
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><User className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        placeholder="Name"
+                        value={doctorForm.name}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Phone className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        placeholder="Phone"
+                        value={doctorForm.phone}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Building2 className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        placeholder="Clinic Name"
+                        value={doctorForm.clinicName}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, clinicName: e.target.value }))}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Stethoscope className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        placeholder="Specialization"
+                        value={doctorForm.specialization}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, specialization: e.target.value }))}
+                      />
+                    </div>
+                    <div className="relative md:col-span-2">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><MapPin className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        placeholder="Locality / Address"
+                        value={doctorForm.locality}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, locality: e.target.value }))}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><GraduationCap className="h-4 w-4" /></span>
+                      <input
+                        className="glass-input pl-10"
+                        placeholder="Education (MBBS/MD/BAMS...)"
+                        value={doctorForm.education}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, education: e.target.value }))}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Briefcase className="h-4 w-4" /></span>
+                      <input
+                        type="number"
+                        className="glass-input pl-10"
+                        placeholder="Experience (years)"
+                        value={doctorForm.experience}
+                        onChange={(e) => setDoctorForm((p) => ({ ...p, experience: e.target.value }))}
+                      />
+                    </div>
                   </div>
 
                   <div className="glass-well section-chroma-soft space-y-4 p-4">
                     <div className="space-y-2">
-                      <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Logo</label>
+                      <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400"><ImageIcon className="mr-1.5 inline h-3.5 w-3.5" />Logo</label>
                       <input
                         className="glass-input"
                         placeholder="Logo URL"
@@ -1808,7 +1885,7 @@ function Dashboard() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Signature</label>
+                      <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400"><PenTool className="mr-1.5 inline h-3.5 w-3.5" />Signature</label>
                       <input
                         className="glass-input"
                         placeholder="Signature URL"

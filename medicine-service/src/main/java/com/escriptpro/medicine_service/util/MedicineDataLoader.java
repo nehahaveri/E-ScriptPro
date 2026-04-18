@@ -13,6 +13,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,10 +31,29 @@ public class MedicineDataLoader implements CommandLineRunner {
     @Override
     @CacheEvict(value = "medicineCache", allEntries = true)
     public void run(String... args) throws Exception {
-        if (medicineRepository.count() > 0) {
+        if (medicineRepository.count() == 0) {
+            System.out.println("Medicine DB is empty - loading from CSV...");
+            loadData();
             return;
         }
-        loadData();
+
+        // Detect missing medicine types and reload if needed
+        boolean hasMissing = false;
+        for (MedicineType type : MedicineType.values()) {
+            List<Medicine> sample = medicineRepository.searchAutocompleteByType(
+                    "", type, PageRequest.of(0, 1));
+            if (sample.isEmpty()) {
+                System.out.println("Missing type in DB: " + type);
+                hasMissing = true;
+            }
+        }
+        if (hasMissing) {
+            System.out.println("Reloading CSV to add missing types...");
+            medicineRepository.deleteAll();
+            loadData();
+        } else {
+            System.out.println("Medicine DB up to date - all " + MedicineType.values().length + " types present.");
+        }
     }
 
     public void loadData() throws IOException {
