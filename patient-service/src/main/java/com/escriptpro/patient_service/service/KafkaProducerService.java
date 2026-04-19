@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class KafkaProducerService {
@@ -12,15 +13,18 @@ public class KafkaProducerService {
     private static final Logger log = LoggerFactory.getLogger(KafkaProducerService.class);
     private static final String TOPIC_NAME = "patient-events";
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
-    public KafkaProducerService(KafkaTemplate<String, Object> kafkaTemplate) {
+    public KafkaProducerService(KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     public void sendPatientEvent(PatientEventDTO event) {
         try {
-            kafkaTemplate.send(TOPIC_NAME, event);
+            String json = objectMapper.writeValueAsString(event);
+            kafkaTemplate.send(TOPIC_NAME, json);
             log.info("Patient event sent to Kafka: {}", event.getEventType());
         } catch (Exception ex) {
             log.warn("Failed to send patient event to Kafka. Continuing synchronous flow.", ex);

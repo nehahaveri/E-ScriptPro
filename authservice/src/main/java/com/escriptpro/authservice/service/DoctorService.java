@@ -115,7 +115,8 @@ public class DoctorService {
             }
 
             String token = jwtUtil.generateToken(authUser.getEmail(), authUser.getDoctorId(), effectiveRole(authUser));
-            return new AuthResponseDTO("Receptionist registered successfully", token, authUser.getDoctorId(), effectiveRole(authUser));
+            String refreshToken = issueRefreshToken(authUser);
+            return new AuthResponseDTO("Receptionist registered successfully", token, refreshToken, authUser.getDoctorId(), effectiveRole(authUser));
         }
 
         String normalizedPhone = normalizePhone(requireValue(signupRequestDTO.getPhone(), "Phone number is required"));
@@ -151,7 +152,8 @@ public class DoctorService {
         }
 
         String token = issueAccessToken(authUser, doctorProfile.getId());
-        return new AuthResponseDTO("Doctor registered successfully", token, doctorProfile.getId(), effectiveRole(authUser));
+        String refreshToken = issueRefreshToken(authUser);
+        return new AuthResponseDTO("Doctor registered successfully", token, refreshToken, doctorProfile.getId(), effectiveRole(authUser));
     }
 
     @Transactional
@@ -175,7 +177,8 @@ public class DoctorService {
 
         if (!isMfaEnforced()) {
             String token = issueAccessToken(authUser, resolvedDoctorId);
-            return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
+            String refreshToken = issueRefreshToken(authUser);
+            return new LoginResponseDTO("Login successful", false, null, token, refreshToken, resolvedDoctorId, effectiveRole(authUser));
         }
 
         String mfaPhone = resolveMfaPhone(authUser, loginContext);
@@ -192,6 +195,7 @@ public class DoctorService {
                 "OTP sent successfully",
                 true,
                 authUser.getMfaChallengeToken(),
+                null,
                 null,
                 null,
                 null
@@ -257,7 +261,7 @@ public class DoctorService {
         authUser.setResetTokenExpiresAt(null);
         authUserRepository.save(authUser);
 
-        return new AuthResponseDTO("Password reset successful", null, null, null);
+        return new AuthResponseDTO("Password reset successful", null, null, null, null);
     }
 
     @Transactional
@@ -278,6 +282,7 @@ public class DoctorService {
 
         Long resolvedDoctorId = resolveDoctorIdForVerifiedUser(authUser);
         String token = issueAccessToken(authUser, resolvedDoctorId);
+        String refreshToken = issueRefreshToken(authUser);
         otpService.clearOtp(authUser);
         authUserRepository.save(authUser);
 
@@ -286,6 +291,7 @@ public class DoctorService {
                 false,
                 null,
                 token,
+                refreshToken,
                 resolvedDoctorId,
                 effectiveRole(authUser)
         );
@@ -445,6 +451,38 @@ public class DoctorService {
     private String issueAccessToken(AuthUser authUser, Long resolvedDoctorId) {
         Long doctorId = resolvedDoctorId != null ? resolvedDoctorId : authUser.getDoctorId();
         return jwtUtil.generateToken(authUser.getEmail(), doctorId, effectiveRole(authUser));
+    }
+
+    private String issueRefreshToken(AuthUser authUser) {
+        String refreshToken = UUID.randomUUID().toString();
+        authUser.setRefreshToken(refreshToken);
+        authUser.setRefreshTokenExpiresAt(LocalDateTime.now().plusDays(jwtUtil.getRefreshTokenExpirationDays()));
+        authUserRepository.save(authUser);
+        return refreshToken;
+    }
+
+    @Transactional
+    public AuthResponseDTO refreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refresh token is required");
+        }
+
+        AuthUser authUser = authUserRepository.findByRefreshToken(refreshToken)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
+
+        if (authUser.getRefreshTokenExpiresAt() == null
+                || authUser.getRefreshTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            authUser.setRefreshToken(null);
+            authUser.setRefreshTokenExpiresAt(null);
+            authUserRepository.save(authUser);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token has expired. Please login again.");
+        }
+
+        Long doctorId = authUser.getDoctorId();
+        String accessToken = issueAccessToken(authUser, doctorId);
+        String newRefreshToken = issueRefreshToken(authUser);
+
+        return new AuthResponseDTO("Token refreshed", accessToken, newRefreshToken, doctorId, effectiveRole(authUser));
     }
 
     private String effectiveRole(AuthUser authUser) {

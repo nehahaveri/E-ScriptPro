@@ -38,21 +38,21 @@ public class PdfService {
     private static final java.awt.Color LIGHT_GREY = new java.awt.Color(245, 245, 245);
     private static final java.awt.Color BORDER = new java.awt.Color(196, 196, 196);
 
-    private static final Font TITLE = new Font(Font.HELVETICA, 16, Font.BOLD, DARK_GREY);
-    private static final Font SECTION_TITLE = new Font(Font.HELVETICA, 10, Font.BOLD, DARK_GREY);
-    private static final Font SUBTITLE = new Font(Font.HELVETICA, 9, Font.BOLD, MID_GREY);
-    private static final Font TEXT_FONT = new Font(Font.HELVETICA, 8, Font.NORMAL, DARK_GREY);
-    private static final Font LABEL_FONT = new Font(Font.HELVETICA, 8, Font.BOLD, MID_GREY);
-    private static final Font RX_FONT = new Font(Font.HELVETICA, 18, Font.BOLD, MID_GREY);
-    private static final Font TABLE_HEADER = new Font(Font.HELVETICA, 5.8f, Font.BOLD, java.awt.Color.WHITE);
-    private static final Font TABLE_BODY = new Font(Font.HELVETICA, 7, Font.NORMAL, DARK_GREY);
-    private static final Font TABLE_BODY_BOLD = new Font(Font.HELVETICA, 7, Font.BOLD, DARK_GREY);
-    private static final Font TICK_FONT = new Font(Font.ZAPFDINGBATS, 9, Font.NORMAL, DARK_GREY);
+    private static final Font TITLE = new Font(Font.HELVETICA, 11, Font.BOLD, DARK_GREY);
+    private static final Font SECTION_TITLE = new Font(Font.HELVETICA, 7, Font.BOLD, DARK_GREY);
+    private static final Font SUBTITLE = new Font(Font.HELVETICA, 6.5f, Font.BOLD, MID_GREY);
+    private static final Font TEXT_FONT = new Font(Font.HELVETICA, 5.5f, Font.NORMAL, DARK_GREY);
+    private static final Font LABEL_FONT = new Font(Font.HELVETICA, 5.5f, Font.BOLD, MID_GREY);
+    private static final Font RX_FONT = new Font(Font.HELVETICA, 13, Font.BOLD, MID_GREY);
+    private static final Font TABLE_HEADER = new Font(Font.HELVETICA, 4.5f, Font.BOLD, java.awt.Color.WHITE);
+    private static final Font TABLE_BODY = new Font(Font.HELVETICA, 5, Font.NORMAL, DARK_GREY);
+    private static final Font TABLE_BODY_BOLD = new Font(Font.HELVETICA, 5, Font.BOLD, DARK_GREY);
+    private static final Font TICK_FONT = new Font(Font.ZAPFDINGBATS, 6.5f, Font.NORMAL, DARK_GREY);
     private static final String TICK_MARKER = "__TICK__";
     private static final String CROSS_MARKER = "__CROSS__";
 
     public byte[] generatePrescriptionPdf(PrescriptionRequestDTO request) {
-        Document document = new Document(PageSize.A5, 18f, 18f, 18f, 20f);
+        Document document = new Document(new Rectangle(288f, 432f), 12f, 12f, 12f, 14f);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
         try {
@@ -90,11 +90,11 @@ public class PdfService {
         }
         PdfPTable table = new PdfPTable(new float[]{1.05f, 2.15f, 2.1f});
         table.setWidthPercentage(100);
-        table.setSpacingAfter(6f);
+        table.setSpacingAfter(4f);
 
         PdfPCell logoCell = blankCell();
         logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        Image logo = loadImage(request.getLogoUrl(), 54f, 54f);
+        Image logo = loadImage(request.getLogoUrl(), 38f, 38f);
         if (logo != null) {
             logoCell.addElement(logo);
         } else {
@@ -108,12 +108,12 @@ public class PdfService {
         doctorCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         if (showDoctorDetails && hasText(request.getDoctorName())) {
             Paragraph doctor = new Paragraph(request.getDoctorName().trim(), TITLE);
-            doctor.setLeading(16f);
+            doctor.setLeading(12f);
             doctorCell.addElement(doctor);
         }
         if (showDoctorDetails && hasText(request.getEducation())) {
             Paragraph education = new Paragraph(request.getEducation().trim(), SUBTITLE);
-            education.setLeading(11f);
+            education.setLeading(8f);
             doctorCell.addElement(education);
         }
         table.addCell(doctorCell);
@@ -124,7 +124,7 @@ public class PdfService {
         if (showDoctorDetails && hasText(request.getClinicName())) {
             Paragraph clinic = new Paragraph(request.getClinicName().trim(), SECTION_TITLE);
             clinic.setAlignment(Element.ALIGN_RIGHT);
-            clinic.setLeading(12f);
+            clinic.setLeading(9f);
             contactCell.addElement(clinic);
         }
         if (showDoctorDetails) {
@@ -138,11 +138,11 @@ public class PdfService {
 
         PdfPTable dividerTable = new PdfPTable(1);
         dividerTable.setWidthPercentage(100);
-        dividerTable.setSpacingAfter(8f);
+        dividerTable.setSpacingAfter(5f);
         PdfPCell divider = new PdfPCell();
         divider.setBorder(Rectangle.BOTTOM);
         divider.setBorderColor(BORDER);
-        divider.setFixedHeight(4f);
+        divider.setFixedHeight(3f);
         divider.setPadding(0f);
         divider.setBackgroundColor(java.awt.Color.WHITE);
         dividerTable.addCell(divider);
@@ -152,7 +152,7 @@ public class PdfService {
     private void addPatientLine(Document document, PrescriptionRequestDTO request) throws DocumentException {
         PdfPTable table = new PdfPTable(new float[]{3.5f, 1f, 1f, 1.5f});
         table.setWidthPercentage(100);
-        table.setSpacingAfter(8f);
+        table.setSpacingAfter(5f);
 
         addPatientCell(table, "Name", firstNonBlank(request.getPatientName(), patientLabel(request.getPatientId())));
         addPatientCell(table, "Age", request.getPatientAge() != null ? request.getPatientAge().toString() : null);
@@ -164,12 +164,12 @@ public class PdfService {
 
     private void addRxTable(Document document, PrescriptionRequestDTO request) throws DocumentException {
         Paragraph rx = new Paragraph("Rx", RX_FONT);
-        rx.setSpacingAfter(4f);
+        rx.setSpacingAfter(3f);
         document.add(rx);
 
         PdfPTable table = new PdfPTable(new float[]{0.42f, 1.92f, 1.02f, 1.18f, 0.84f, 1.22f, 0.78f, 0.62f});
         table.setWidthPercentage(100);
-        table.setSpacingAfter(6f);
+        table.setSpacingAfter(4f);
 
         addHeaderCell(table, "No.");
         addHeaderCell(table, "Medication Name");
@@ -214,7 +214,7 @@ public class PdfService {
         }
 
         Paragraph followUp = new Paragraph();
-        followUp.setSpacingAfter(10f);
+        followUp.setSpacingAfter(7f);
         followUp.add(new Phrase("Next Follow-Up Date: ", LABEL_FONT));
         followUp.add(new Phrase(request.getFollowUpDate().trim(), TEXT_FONT));
         document.add(followUp);
@@ -226,19 +226,19 @@ public class PdfService {
         footer.setWidthPercentage(100);
 
         PdfPCell footerCell = blankCell();
-        footerCell.setPaddingTop(6f);
+        footerCell.setPaddingTop(4f);
         footerCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
 
         if (request.getConsultationFee() != null) {
             Paragraph fee = new Paragraph();
-            fee.setSpacingAfter(6f);
+            fee.setSpacingAfter(4f);
             fee.setAlignment(Element.ALIGN_RIGHT);
             fee.add(new Phrase("Consultation Fee: ", LABEL_FONT));
             fee.add(new Phrase(String.valueOf(request.getConsultationFee()), TEXT_FONT));
             footerCell.addElement(fee);
         }
 
-        Image signature = showDoctorDetails ? loadImage(request.getSignatureUrl(), 92f, 34f) : null;
+        Image signature = showDoctorDetails ? loadImage(request.getSignatureUrl(), 64f, 24f) : null;
         if (signature != null) {
             signature.setAlignment(Element.ALIGN_RIGHT);
             footerCell.addElement(signature);
@@ -252,7 +252,7 @@ public class PdfService {
         PdfPCell cell = new PdfPCell();
         cell.setBorder(Rectangle.BOTTOM);
         cell.setBorderColor(BORDER);
-        cell.setPaddingBottom(4f);
+        cell.setPaddingBottom(3f);
         Phrase phrase = new Phrase();
         phrase.add(new Phrase(label + ": ", LABEL_FONT));
         phrase.add(new Phrase(defaultText(value, " "), TEXT_FONT));
@@ -266,7 +266,7 @@ public class PdfService {
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         cell.setBorderColor(BORDER);
-        cell.setPadding(5f);
+        cell.setPadding(3.5f);
         table.addCell(cell);
     }
 
@@ -297,7 +297,7 @@ public class PdfService {
     private void addBodyCell(PdfPTable table, String value, int horizontalAlignment, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(defaultText(value, "-"), font));
         cell.setBorderColor(BORDER);
-        cell.setPadding(5f);
+        cell.setPadding(3.5f);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         cell.setHorizontalAlignment(horizontalAlignment);
         table.addCell(cell);
@@ -314,7 +314,7 @@ public class PdfService {
             return;
         }
         Paragraph line = new Paragraph(value.trim(), TEXT_FONT);
-        line.setLeading(10f);
+        line.setLeading(7f);
         line.setAlignment(alignment);
         cell.addElement(line);
     }

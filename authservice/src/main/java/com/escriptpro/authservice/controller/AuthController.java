@@ -5,6 +5,7 @@ import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginResponseDTO;
+import com.escriptpro.authservice.dto.RefreshTokenRequestDTO;
 import com.escriptpro.authservice.dto.ResetPasswordRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
 import com.escriptpro.authservice.dto.VerifyOtpRequestDTO;
@@ -49,5 +50,10 @@ public class AuthController {
     @PostMapping("/reset-password")
     public AuthResponseDTO resetPassword(@Valid @RequestBody ResetPasswordRequestDTO resetPasswordRequestDTO) {
         return doctorService.resetPassword(resetPasswordRequestDTO);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponseDTO refresh(@Valid @RequestBody RefreshTokenRequestDTO refreshTokenRequestDTO) {
+        return doctorService.refreshToken(refreshTokenRequestDTO.getRefreshToken());
     }
 }

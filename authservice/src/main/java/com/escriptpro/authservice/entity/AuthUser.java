@@ -52,6 +52,10 @@ public class AuthUser {
 
     private LocalDateTime mfaChallengeExpiresAt;
 
+    private String refreshToken;
+
+    private LocalDateTime refreshTokenExpiresAt;
+
     @PrePersist
     void applyDefaults() {
         if (role == null) {

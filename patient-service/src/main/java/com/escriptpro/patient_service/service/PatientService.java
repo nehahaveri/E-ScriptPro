@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -54,9 +55,19 @@ public class PatientService {
         this.prescriptionServiceUrl = prescriptionServiceUrl;
     }
 
+    /**
+     * One-time startup migration: backfills missing patient numbers for all doctors.
+     */
+    @PostConstruct
+    void backfillAllMissingPatientNumbers() {
+        List<Long> doctorIds = patientRepository.findDistinctDoctorIds();
+        for (Long doctorId : doctorIds) {
+            backfillMissingPatientNumbers(doctorId);
+        }
+    }
+
     public Patient savePatient(Patient patient, String email, String token, String role, Long doctorIdFromToken) {
         Long doctorId = resolveDoctorId(email, token, role, doctorIdFromToken);
-        backfillMissingPatientNumbers(doctorId);
         patient.setDoctorId(doctorId);
         patient.setPatientNumber(nextPatientNumber(doctorId));
         normalizeAppointmentMetadata(patient);
@@ -96,7 +107,6 @@ public class PatientService {
 
     public List<Patient> getPatientsByDoctorEmail(String email, String token, String role, Long doctorIdFromToken) {
         Long doctorId = resolveDoctorId(email, token, role, doctorIdFromToken);
-        backfillMissingPatientNumbers(doctorId);
         return patientRepository.findByDoctorIdOrderByPatientNumberAsc(doctorId);
     }
 
@@ -107,7 +117,6 @@ public class PatientService {
             Long doctorIdFromToken,
             Long patientId) {
         Long doctorId = resolveDoctorId(email, token, role, doctorIdFromToken);
-        backfillMissingPatientNumbers(doctorId);
         Optional<Patient> ownedPatient = patientRepository.findByIdAndDoctorId(patientId, doctorId);
         if (ownedPatient.isPresent()) {
             return ownedPatient.get();
@@ -127,7 +136,6 @@ public class PatientService {
             Long doctorIdFromToken,
             String query) {
         Long doctorId = resolveDoctorId(email, token, role, doctorIdFromToken);
-        backfillMissingPatientNumbers(doctorId);
         String normalized = query == null ? "" : query.trim();
         if (normalized.isEmpty()) {
             return patientRepository.findByDoctorIdOrderByPatientNumberAsc(doctorId);
@@ -154,7 +162,6 @@ public class PatientService {
             Long doctorIdFromToken,
             String date) {
         Long doctorId = resolveDoctorId(email, token, role, doctorIdFromToken);
-        backfillMissingPatientNumbers(doctorId);
         return patientRepository.findByDoctorIdAndAppointmentDateOrderByPatientNumberAsc(doctorId, date).stream()
                 .map(patient -> new PatientAppointmentDTO(
                         patient.getId(),
@@ -227,7 +234,6 @@ public class PatientService {
             Long doctorIdFromToken,
             Long patientId) {
         Long doctorId = resolveDoctorId(email, token, role, doctorIdFromToken);
-        backfillMissingPatientNumbers(doctorId);
         Patient patient = patientRepository.findByIdAndDoctorId(patientId, doctorId)
                 .orElseThrow(() -> resolvePatientAccessError(patientId));
 
@@ -329,7 +335,7 @@ public class PatientService {
         patient.setCalendarSyncStatus(DEFAULT_CALENDAR_SYNC_STATUS);
         patient.setExternalCalendarEventId(
                 patient.getExternalCalendarEventId() == null || patient.getExternalCalendarEventId().isBlank()
-                        ? patient.getExternalCalendarEventId()
+                        ? null
                         : patient.getExternalCalendarEventId().trim()
         );
     }

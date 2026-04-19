@@ -2,8 +2,8 @@ package com.escriptpro.prescription_service.controller;
 
 import com.escriptpro.prescription_service.dto.FileUploadResponseDTO;
 import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
+import com.escriptpro.prescription_service.dto.PrescriptionHistoryDTO;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
-import com.escriptpro.prescription_service.entity.Prescription;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,9 +25,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/prescriptions")
@@ -57,13 +57,13 @@ public class PrescriptionController {
     }
 
     @GetMapping("/patient/{patientId}")
-    public ResponseEntity<List<Prescription>> getPatientPrescriptionHistory(
+    public ResponseEntity<List<PrescriptionHistoryDTO>> getPatientPrescriptionHistory(
             @PathVariable Long patientId,
             HttpServletRequest httpRequest) {
         String authorizationHeader = httpRequest.getHeader("Authorization");
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
-        List<Prescription> history = prescriptionService.getPrescriptionHistory(patientId, email, token);
+        List<PrescriptionHistoryDTO> history = prescriptionService.getPrescriptionHistory(patientId, email, token);
         return ResponseEntity.ok(history);
     }
 
@@ -121,7 +121,7 @@ public class PrescriptionController {
             HttpServletRequest httpRequest) {
         String authorizationHeader = httpRequest.getHeader("Authorization");
         extractBearerToken(authorizationHeader);
-        String baseUrl = httpRequest.getScheme() + "://" + httpRequest.getServerName() + ":" + httpRequest.getServerPort();
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         String fileUrl = prescriptionService.uploadXray(file, baseUrl);
         return new FileUploadResponseDTO(fileUrl, "Uploaded successfully");
     }

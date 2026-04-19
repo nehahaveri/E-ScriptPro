@@ -5,13 +5,17 @@ import com.escriptpro.doctor_service.dto.DoctorProfileUpdateDTO;
 import com.escriptpro.doctor_service.entity.Doctor;
 import com.escriptpro.doctor_service.repository.DoctorRepository;
 import com.escriptpro.doctor_service.validation.PhoneNumberValidator;
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class DoctorService {
 
+    private static final Logger log = LoggerFactory.getLogger(DoctorService.class);
     private static final String DEFAULT_PHONE_REGION = "IN";
 
     private final DoctorRepository doctorRepository;
@@ -27,6 +32,30 @@ public class DoctorService {
 
     public DoctorService(DoctorRepository doctorRepository) {
         this.doctorRepository = doctorRepository;
+    }
+
+    /**
+     * One-time startup migration: normalizes any legacy phone numbers to E.164
+     * so that the indexed findByPhone query always works.
+     */
+    @PostConstruct
+    void normalizeExistingPhoneNumbers() {
+        List<Doctor> doctors = doctorRepository.findAll();
+        int fixed = 0;
+        for (Doctor doctor : doctors) {
+            if (doctor.getPhone() == null || doctor.getPhone().isBlank()) {
+                continue;
+            }
+            String normalized = safeNormalizePhone(doctor.getPhone());
+            if (normalized != null && !normalized.equals(doctor.getPhone())) {
+                doctor.setPhone(normalized);
+                doctorRepository.save(doctor);
+                fixed++;
+            }
+        }
+        if (fixed > 0) {
+            log.info("Normalized {} doctor phone number(s) to E.164 format", fixed);
+        }
     }
 
     public Doctor createDoctor(DoctorRegistrationRequest request) {
@@ -147,6 +176,9 @@ public class DoctorService {
 
     public Path resolveFilePath(String filename) {
         Path filePath = uploadDir.resolve(filename).normalize();
+        if (!filePath.startsWith(uploadDir)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid file path");
+        }
         if (!Files.exists(filePath)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
         }
@@ -176,22 +208,7 @@ public class DoctorService {
     }
 
     private java.util.Optional<Doctor> findDoctorByNormalizedPhone(String normalizedPhone) {
-        java.util.Optional<Doctor> directMatch = doctorRepository.findByPhone(normalizedPhone);
-        if (directMatch.isPresent()) {
-            return directMatch;
-        }
-
-        return doctorRepository.findAll().stream()
-                .filter(doctor -> doctor.getPhone() != null && !doctor.getPhone().isBlank())
-                .filter(doctor -> normalizedPhone.equals(safeNormalizePhone(doctor.getPhone())))
-                .findFirst()
-                .map(doctor -> {
-                    if (!normalizedPhone.equals(doctor.getPhone())) {
-                        doctor.setPhone(normalizedPhone);
-                        return doctorRepository.save(doctor);
-                    }
-                    return doctor;
-                });
+        return doctorRepository.findByPhone(normalizedPhone);
     }
 
     private String safeNormalizePhone(String phone) {

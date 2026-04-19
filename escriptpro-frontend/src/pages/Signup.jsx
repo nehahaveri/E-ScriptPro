@@ -44,6 +44,7 @@ function Signup() {
 
       // Prefer token returned by signup; fallback to login for compatibility.
       let token = signupResponse.data?.token
+      let refreshToken = signupResponse.data?.refreshToken
       const resolvedRole = (signupResponse.data?.role || selectedRole).toUpperCase()
       const resolvedDoctorId = signupResponse.data?.doctorId
       if (!token) {
@@ -52,6 +53,7 @@ function Signup() {
           password,
         })
         token = loginResponse.data?.token
+        refreshToken = loginResponse.data?.refreshToken
         localStorage.setItem('role', (loginResponse.data?.role || resolvedRole).toUpperCase())
         if (loginResponse.data?.doctorId !== null && loginResponse.data?.doctorId !== undefined) {
           localStorage.setItem('doctorId', String(loginResponse.data.doctorId))
@@ -64,6 +66,9 @@ function Signup() {
       }
 
       localStorage.setItem('token', token)
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken)
+      }
       localStorage.setItem('role', resolvedRole)
       if (resolvedDoctorId !== null && resolvedDoctorId !== undefined) {
         localStorage.setItem('doctorId', String(resolvedDoctorId))

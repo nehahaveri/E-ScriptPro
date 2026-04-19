@@ -6,6 +6,8 @@ import com.escriptpro.medicine_service.repository.MedicineRepository;
 import com.escriptpro.medicine_service.util.MedicineSuggestionIndex;
 import java.util.List;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class MedicineService {
+
+    private static final Logger log = LoggerFactory.getLogger(MedicineService.class);
 
     private final MedicineRepository medicineRepository;
     private final MedicineSuggestionIndex medicineSuggestionIndex;
@@ -29,7 +33,7 @@ public class MedicineService {
             key = "T(String).valueOf(#query).toLowerCase() + '_' + (#type != null ? #type : 'ALL')"
     )
     public List<Medicine> searchMedicines(String query, String type) {
-        System.out.println("🔥 DB HIT - fetching medicines");
+        log.debug("DB HIT - fetching medicines");
         String normalizedQuery = query == null ? "" : query.trim();
         PageRequest topTen = PageRequest.of(0, 10);
 

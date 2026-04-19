@@ -9,6 +9,7 @@ import com.escriptpro.prescription_service.dto.CreamDTO;
 import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
 import com.escriptpro.prescription_service.dto.GelDTO;
 import com.escriptpro.prescription_service.dto.InjectionDTO;
+import com.escriptpro.prescription_service.dto.PrescriptionHistoryDTO;
 import com.escriptpro.prescription_service.dto.LotionDTO;
 import com.escriptpro.prescription_service.dto.OintmentDTO;
 import com.escriptpro.prescription_service.dto.PatientResponseDTO;
@@ -111,6 +112,7 @@ public class PrescriptionService {
         initializeUploadDirectory();
     }
 
+    @Transactional
     public byte[] createPrescription(PrescriptionRequestDTO request, String email, String token) {
         Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
         var patient = request.getPatientId() != null ? validatePatientOwnership(request.getPatientId(), token) : null;
@@ -151,7 +153,6 @@ public class PrescriptionService {
         prescription.setVisitDate(LocalDate.now());
 
         Prescription savedPrescription = prescriptionRepository.save(prescription);
-        kafkaProducerService.sendPrescriptionEvent(request);
 
         if (request.getTablets() != null) {
             request.getTablets().forEach(dto -> {
@@ -318,15 +319,30 @@ public class PrescriptionService {
             });
         }
 
+        request.setPrescriptionId(savedPrescription.getId());
+        kafkaProducerService.sendPrescriptionEvent(request);
+
         byte[] pdf = pdfClient.generatePdf(request);
         log.info("Prescription PDF generated successfully. Size={} bytes", pdf != null ? pdf.length : 0);
         return pdf;
     }
 
-    public List<Prescription> getPrescriptionHistory(Long patientId, String email, String token) {
+    public List<PrescriptionHistoryDTO> getPrescriptionHistory(Long patientId, String email, String token) {
         Long doctorId = doctorClient.getDoctorIdByEmail(email, token);
         validatePatientOwnership(patientId, token);
-        return prescriptionRepository.findByDoctorIdAndPatientIdOrderByVisitDateDescCreatedAtDesc(doctorId, patientId);
+        return prescriptionRepository.findByDoctorIdAndPatientIdOrderByVisitDateDescCreatedAtDesc(doctorId, patientId)
+                .stream()
+                .map(this::toHistoryDTO)
+                .toList();
+    }
+
+    private PrescriptionHistoryDTO toHistoryDTO(Prescription p) {
+        return new PrescriptionHistoryDTO(
+                p.getId(), p.getComplaints(), p.getExamination(), p.getInvestigationAdvice(),
+                p.getDiagnosis(), p.getBp(), p.getSugar(), p.getTreatment(),
+                p.getFollowUp(), p.getFollowUpDate(), p.getXrayImageUrl(),
+                p.getAdvice(), p.getConsultationFee(), p.getVisitDate(), p.getCreatedAt()
+        );
     }
 
     public List<FollowUpAppointmentDTO> getFollowUpsByDate(String followUpDate, String email, String token) {
@@ -662,6 +678,10 @@ public class PrescriptionService {
     private void deletePrescriptionRecords(Prescription prescription) {
         Long prescriptionId = prescription.getId();
         lotionRepository.deleteByPrescriptionId(prescriptionId);
+        creamRepository.deleteByPrescriptionId(prescriptionId);
+        ointmentRepository.deleteByPrescriptionId(prescriptionId);
+        gelRepository.deleteByPrescriptionId(prescriptionId);
+        suspensionRepository.deleteByPrescriptionId(prescriptionId);
         capsuleRepository.deleteByPrescriptionId(prescriptionId);
         injectionRepository.deleteByPrescriptionId(prescriptionId);
         syrupRepository.deleteByPrescriptionId(prescriptionId);

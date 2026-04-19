@@ -36,4 +36,7 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
             ORDER BY p.patientNumber ASC, p.name ASC
             """)
     List<Patient> searchByDoctorId(@Param("doctorId") Long doctorId, @Param("query") String query);
+
+    @Query("SELECT DISTINCT p.doctorId FROM Patient p")
+    List<Long> findDistinctDoctorIds();
 }

@@ -13,6 +13,7 @@ public class AuthResponseDTO {
 
     private String message;
     private String token;
+    private String refreshToken;
     private Long doctorId;
     private String role;
 }

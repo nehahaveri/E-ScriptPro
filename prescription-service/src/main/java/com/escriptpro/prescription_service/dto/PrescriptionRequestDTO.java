@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class PrescriptionRequestDTO {
 
     private Long patientId;
+    private Long prescriptionId;
 
     private String doctorName;
     private String doctorEmail;

@@ -8,6 +8,7 @@ import com.escriptpro.doctor_service.service.DoctorService;
 import com.escriptpro.doctor_service.util.JwtUtil;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.springframework.http.HttpStatus;
@@ -79,11 +80,10 @@ public class DoctorController {
     public FileUploadResponseDTO uploadDoctorAsset(
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("type") String type,
-            jakarta.servlet.http.HttpServletRequest request) {
+            @RequestParam("type") String type) {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
-        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         String fileUrl = doctorService.uploadDoctorAsset(email, type, file, baseUrl);
         return new FileUploadResponseDTO(fileUrl, "Uploaded successfully");
     }

@@ -13,10 +13,12 @@ public class KafkaConsumerService {
     private static final Logger log = LoggerFactory.getLogger(KafkaConsumerService.class);
 
     private final PdfService pdfService;
+    private final PdfStorageService pdfStorageService;
     private final ObjectMapper objectMapper;
 
-    public KafkaConsumerService(PdfService pdfService, ObjectMapper objectMapper) {
+    public KafkaConsumerService(PdfService pdfService, PdfStorageService pdfStorageService, ObjectMapper objectMapper) {
         this.pdfService = pdfService;
+        this.pdfStorageService = pdfStorageService;
         this.objectMapper = objectMapper;
     }
 
@@ -27,8 +29,9 @@ public class KafkaConsumerService {
     public void consumePrescriptionEvent(String requestPayload) {
         try {
             PrescriptionRequestDTO request = objectMapper.readValue(requestPayload, PrescriptionRequestDTO.class);
-            pdfService.generatePrescriptionPdf(request);
-            log.info("Received event and generated PDF");
+            byte[] pdfBytes = pdfService.generatePrescriptionPdf(request);
+            String filename = pdfStorageService.store(pdfBytes, request.getPatientId(), request.getPrescriptionId());
+            log.info("Received event, generated and stored PDF: {}", filename);
         } catch (Exception ex) {
             log.error("Failed to process Kafka prescription event", ex);
         }

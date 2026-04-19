@@ -15,6 +15,7 @@ public class LoginResponseDTO {
     private Boolean mfaRequired;
     private String mfaChallengeToken;
     private String token;
+    private String refreshToken;
     private Long doctorId;
     private String role;
 }

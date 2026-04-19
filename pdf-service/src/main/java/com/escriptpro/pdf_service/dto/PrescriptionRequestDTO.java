@@ -5,6 +5,7 @@ import java.util.List;
 public class PrescriptionRequestDTO {
 
     private Long patientId;
+    private Long prescriptionId;
     private String doctorName;
     private String doctorEmail;
     private String doctorPhone;
@@ -48,6 +49,14 @@ public class PrescriptionRequestDTO {
 
     public void setPatientId(Long patientId) {
         this.patientId = patientId;
+    }
+
+    public Long getPrescriptionId() {
+        return prescriptionId;
+    }
+
+    public void setPrescriptionId(Long prescriptionId) {
+        this.prescriptionId = prescriptionId;
     }
 
     public String getDoctorName() {

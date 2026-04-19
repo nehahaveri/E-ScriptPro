@@ -1396,6 +1396,7 @@ function Dashboard() {
 
     const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('role')
     localStorage.removeItem('doctorId')
     window.location.href = '/'

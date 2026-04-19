@@ -32,7 +32,7 @@ function Login() {
     }
   }
 
-  const finalizeLogin = (token, loginIdentifier, resolvedRole, resolvedDoctorId) => {
+  const finalizeLogin = (token, refreshToken, loginIdentifier, resolvedRole, resolvedDoctorId) => {
     if (!token) {
       setError('Login failed. Token not received.')
       return
@@ -46,6 +46,9 @@ function Login() {
 
     persistLoginPreference(loginIdentifier)
     localStorage.setItem('token', token)
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken)
+    }
     localStorage.setItem('role', effectiveRole)
     if (resolvedDoctorId !== null && resolvedDoctorId !== undefined) {
       localStorage.setItem('doctorId', String(resolvedDoctorId))
@@ -68,7 +71,7 @@ function Login() {
       return
     }
 
-    finalizeLogin(response.data?.token, loginIdentifier, response.data?.role, response.data?.doctorId)
+    finalizeLogin(response.data?.token, response.data?.refreshToken, loginIdentifier, response.data?.role, response.data?.doctorId)
   }
 
   const handleOtpVerification = async (loginIdentifier) => {
@@ -77,7 +80,7 @@ function Login() {
       otp: otp.trim(),
     })
 
-    finalizeLogin(response.data?.token, loginIdentifier, response.data?.role, response.data?.doctorId)
+    finalizeLogin(response.data?.token, response.data?.refreshToken, loginIdentifier, response.data?.role, response.data?.doctorId)
   }
 
   const handleSubmit = async (event) => {
