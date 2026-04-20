@@ -320,6 +320,12 @@ public class PrescriptionService {
             });
         }
 
+        // Convert S3 keys to URLs before generating PDF
+        String logoUrl = convertS3KeyToUrl(request.getLogoUrl(), S3Service.FileType.LOGO);
+        String signatureUrl = convertS3KeyToUrl(request.getSignatureUrl(), S3Service.FileType.SIGNATURE);
+        request.setLogoUrl(logoUrl);
+        request.setSignatureUrl(signatureUrl);
+
         byte[] pdf = pdfClient.generatePdf(request);
         log.info("Prescription PDF generated successfully. Size={} bytes", pdf != null ? pdf.length : 0);
         return pdf;
@@ -795,17 +801,21 @@ public class PrescriptionService {
      */
     private String convertS3KeyToUrl(String s3KeyOrUrl, S3Service.FileType fileType) {
         if (!hasText(s3KeyOrUrl)) {
+            log.debug("S3 key/URL is empty for file type: {}", fileType);
             return null;
         }
         // If it's already a URL (starts with http or /), return as-is
         if (s3KeyOrUrl.startsWith("http://") || s3KeyOrUrl.startsWith("https://") || s3KeyOrUrl.startsWith("/")) {
+            log.info("S3 value already a URL, returning as-is: {} (type: {})", s3KeyOrUrl, fileType);
             return s3KeyOrUrl;
         }
         // Otherwise, treat it as an S3 key and generate a URL
         try {
-            return s3Service.generateUrl(s3KeyOrUrl, fileType);
+            String generatedUrl = s3Service.generateUrl(s3KeyOrUrl, fileType);
+            log.info("Converted S3 key to URL | Key: {} | Type: {} | Generated URL: {}", s3KeyOrUrl, fileType, generatedUrl);
+            return generatedUrl;
         } catch (Exception e) {
-            log.error("Failed to generate URL for key: {}", s3KeyOrUrl, e);
+            log.error("Failed to generate URL for key: {} (type: {})", s3KeyOrUrl, fileType, e);
             return null;
         }
     }

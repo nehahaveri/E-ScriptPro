@@ -132,6 +132,7 @@ public class PdfService {
 
         PdfPCell logoCell = blankCell();
         logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        log.info("Trying to load logo from: " + request.getLogoUrl());
         Image logo = loadImage(request.getLogoUrl(), 54f, 54f);
         if (logo != null) {
             logoCell.addElement(logo);
@@ -543,13 +544,17 @@ public class PdfService {
 
     private Image loadImage(String imageUrl, float maxWidth, float maxHeight) {
         if (!hasText(imageUrl)) {
+            log.debug("Image URL is empty or null");
             return null;
         }
         try {
+            log.info("Loading image from URL: {}", imageUrl);
             Image image = Image.getInstance(new URL(imageUrl));
             image.scaleToFit(maxWidth, maxHeight);
+            log.info("Image loaded successfully from: {}", imageUrl);
             return image;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("Failed to load image from URL: {} | Error: {}", imageUrl, e.getMessage());
             return null;
         }
     }
