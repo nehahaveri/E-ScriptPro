@@ -10,3 +10,4 @@ public class ReceptionistServiceApplication {
         SpringApplication.run(ReceptionistServiceApplication.class, args);
     }
 }
+// minor changes
