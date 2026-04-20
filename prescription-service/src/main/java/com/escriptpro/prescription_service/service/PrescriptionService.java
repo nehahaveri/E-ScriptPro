@@ -394,8 +394,8 @@ public class PrescriptionService {
         request.setShowClinicName(resolveFlag(prescription.getShowClinicName(), true));
         request.setLocality(prescription.getLocality());
         request.setEducation(prescription.getEducation());
-        request.setLogoUrl(prescription.getLogoUrl());
-        request.setSignatureUrl(prescription.getSignatureUrl());
+        request.setLogoUrl(convertS3KeyToUrl(prescription.getLogoUrl(), S3Service.FileType.LOGO));
+        request.setSignatureUrl(convertS3KeyToUrl(prescription.getSignatureUrl(), S3Service.FileType.SIGNATURE));
         request.setPatientName(patient != null ? patient.getName() : null);
         request.setPatientAge(patient != null ? patient.getAge() : null);
         request.setPatientGender(patient != null ? patient.getGender() : null);
@@ -409,7 +409,7 @@ public class PrescriptionService {
         request.setTreatment(prescription.getTreatment());
         request.setFollowUp(prescription.getFollowUp());
         request.setFollowUpDate(prescription.getFollowUpDate());
-        request.setXrayImageUrl(prescription.getXrayImageUrl());
+        request.setXrayImageUrl(convertS3KeyToUrl(prescription.getXrayImageUrl(), S3Service.FileType.XRAY));
         request.setAdvice(prescription.getAdvice());
         request.setConsultationFee(prescription.getConsultationFee());
         request.setFee(prescription.getConsultationFee());
@@ -788,5 +788,25 @@ public class PrescriptionService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * Convert S3 key to accessible URL if it's a key, otherwise return as-is if already a URL
+     */
+    private String convertS3KeyToUrl(String s3KeyOrUrl, S3Service.FileType fileType) {
+        if (!hasText(s3KeyOrUrl)) {
+            return null;
+        }
+        // If it's already a URL (starts with http or /), return as-is
+        if (s3KeyOrUrl.startsWith("http://") || s3KeyOrUrl.startsWith("https://") || s3KeyOrUrl.startsWith("/")) {
+            return s3KeyOrUrl;
+        }
+        // Otherwise, treat it as an S3 key and generate a URL
+        try {
+            return s3Service.generateUrl(s3KeyOrUrl, fileType);
+        } catch (Exception e) {
+            log.error("Failed to generate URL for key: {}", s3KeyOrUrl, e);
+            return null;
+        }
     }
 }
