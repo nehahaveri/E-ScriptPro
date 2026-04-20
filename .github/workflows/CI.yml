@@ -71,7 +71,7 @@ jobs:
 
       # ---------- AUTH ----------
       - name: Build & Deploy Auth
-        if: needs.detect-changes.outputs.authservice == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/authservice:${{ github.sha }} ./authservice
           docker push amoghlokhande/authservice:${{ github.sha }}
@@ -80,7 +80,7 @@ jobs:
 
       # ---------- DOCTOR ----------
       - name: Build & Deploy Doctor
-        if: needs.detect-changes.outputs.doctor == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/doctor-service:${{ github.sha }} ./doctor-service
           docker push amoghlokhande/doctor-service:${{ github.sha }}
@@ -89,7 +89,7 @@ jobs:
 
       # ---------- PATIENT ----------
       - name: Build & Deploy Patient
-        if: needs.detect-changes.outputs.patient == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/patient-service:${{ github.sha }} ./patient-service
           docker push amoghlokhande/patient-service:${{ github.sha }}
@@ -98,7 +98,7 @@ jobs:
 
       # ---------- MEDICINE ----------
       - name: Build & Deploy Medicine
-        if: needs.detect-changes.outputs.medicine == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/medicine-service:${{ github.sha }} ./medicine-service
           docker push amoghlokhande/medicine-service:${{ github.sha }}
@@ -107,7 +107,7 @@ jobs:
 
       # ---------- PDF ----------
       - name: Build & Deploy PDF
-        if: needs.detect-changes.outputs.pdf == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/pdf-service:${{ github.sha }} ./pdf-service
           docker push amoghlokhande/pdf-service:${{ github.sha }}
@@ -116,7 +116,7 @@ jobs:
 
       # ---------- PRESCRIPTION ----------
       - name: Build & Deploy Prescription
-        if: needs.detect-changes.outputs.prescription == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/prescription-service:${{ github.sha }} ./prescription-service
           docker push amoghlokhande/prescription-service:${{ github.sha }}
@@ -125,7 +125,7 @@ jobs:
 
       # ---------- RECEPTIONIST ----------
       - name: Build & Deploy Receptionist
-        if: needs.detect-changes.outputs.receptionist == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/receptionist-service:${{ github.sha }} ./receptionist-service
           docker push amoghlokhande/receptionist-service:${{ github.sha }}
@@ -134,7 +134,7 @@ jobs:
 
       # ---------- API GATEWAY ----------
       - name: Build & Deploy Gateway
-        if: needs.detect-changes.outputs.gateway == 'true' || github.event.before == '0000000000000000000000000000000000000000'
+        if: always()
         run: |
           docker build -t amoghlokhande/api-gateway:${{ github.sha }} ./api-gateway
           docker push amoghlokhande/api-gateway:${{ github.sha }}
