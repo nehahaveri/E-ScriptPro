@@ -7,23 +7,16 @@ import com.escriptpro.doctor_service.entity.Doctor;
 import com.escriptpro.doctor_service.service.DoctorService;
 import com.escriptpro.doctor_service.util.JwtUtil;
 import jakarta.validation.Valid;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.springframework.http.HttpStatus;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -79,28 +72,29 @@ public class DoctorController {
     public FileUploadResponseDTO uploadDoctorAsset(
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("type") String type,
-            jakarta.servlet.http.HttpServletRequest request) {
+            @RequestParam("type") String type) {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
-        String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
-        String fileUrl = doctorService.uploadDoctorAsset(email, type, file, baseUrl);
-        return new FileUploadResponseDTO(fileUrl, "Uploaded successfully");
+        doctorService.uploadDoctorAsset(email, type, file);
+        return new FileUploadResponseDTO("Uploaded successfully", "Uploaded successfully");
     }
 
-    @GetMapping("/files/{filename:.+}")
-    public ResponseEntity<ByteArrayResource> getUploadedFile(@PathVariable String filename) throws IOException {
-        Path filePath = doctorService.resolveFilePath(filename);
-        byte[] fileBytes = Files.readAllBytes(filePath);
+    @GetMapping("/logo")
+    public FileUploadResponseDTO getLogoUrl(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = extractBearerToken(authorizationHeader);
+        String email = jwtUtil.extractUsername(token);
+        String key = doctorService.getLogoKey(email);
+        String url = doctorService.generateLogoUrl(key);
+        return new FileUploadResponseDTO(url, "Logo URL");
+    }
 
-        MediaType mediaType = filename.toLowerCase().endsWith(".png")
-                ? MediaType.IMAGE_PNG
-                : MediaType.IMAGE_JPEG;
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                .contentType(mediaType)
-                .body(new ByteArrayResource(fileBytes));
+    @GetMapping("/signature")
+    public FileUploadResponseDTO getSignatureUrl(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = extractBearerToken(authorizationHeader);
+        String email = jwtUtil.extractUsername(token);
+        String key = doctorService.getSignatureKey(email);
+        String url = doctorService.generateSignatureUrl(key);
+        return new FileUploadResponseDTO(url, "Signature URL");
     }
 
     private String extractBearerToken(String authorizationHeader) {

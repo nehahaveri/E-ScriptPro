@@ -37,15 +37,11 @@ import com.escriptpro.prescription_service.repository.SuspensionRepository;
 import com.escriptpro.prescription_service.repository.SyrupRepository;
 import com.escriptpro.prescription_service.repository.TabletRepository;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +71,7 @@ public class PrescriptionService {
     private final MedicineClient medicineClient;
     private final KafkaProducerService kafkaProducerService;
     private final PdfClient pdfClient;
-    private final Path uploadDir = Path.of("uploads");
+    private final S3Service s3Service;
 
     public PrescriptionService(
             PrescriptionRepository prescriptionRepository,
@@ -92,7 +88,8 @@ public class PrescriptionService {
             PatientClient patientClient,
             MedicineClient medicineClient,
             KafkaProducerService kafkaProducerService,
-            PdfClient pdfClient) {
+            PdfClient pdfClient,
+            S3Service s3Service) {
         this.prescriptionRepository = prescriptionRepository;
         this.tabletRepository = tabletRepository;
         this.capsuleRepository = capsuleRepository;
@@ -108,7 +105,7 @@ public class PrescriptionService {
         this.medicineClient = medicineClient;
         this.kafkaProducerService = kafkaProducerService;
         this.pdfClient = pdfClient;
-        initializeUploadDirectory();
+        this.s3Service = s3Service;
     }
 
     public byte[] createPrescription(PrescriptionRequestDTO request, String email, String token) {
@@ -151,6 +148,11 @@ public class PrescriptionService {
         prescription.setVisitDate(LocalDate.now());
 
         Prescription savedPrescription = prescriptionRepository.save(prescription);
+        
+        // Set doctorId and prescriptionId in the request for PDF generation
+        request.setDoctorId(doctorId);
+        request.setPrescriptionId(savedPrescription.getId());
+        
         kafkaProducerService.sendPrescriptionEvent(request);
 
         if (request.getTablets() != null) {
@@ -424,28 +426,68 @@ public class PrescriptionService {
         return pdfClient.generatePdf(request);
     }
 
-    public String uploadXray(MultipartFile file, String baseUrl) {
+    public String uploadXray(Long prescriptionId, MultipartFile file) {
         validateXrayFile(file);
 
         String originalName = file.getOriginalFilename() == null ? "xray.jpg" : file.getOriginalFilename();
         String extension = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : ".jpg";
-        String filename = "xray-" + UUID.randomUUID() + extension.toLowerCase();
-        Path destination = uploadDir.resolve(filename).normalize();
+        extension = extension.toLowerCase();
 
         try {
-            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
-            return baseUrl + "/prescriptions/files/" + filename;
+            // S3 key format: doctors/{doctorId}/prescriptions/{prescriptionId}/xray.ext
+            Prescription prescription = prescriptionRepository.findById(prescriptionId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prescription not found"));
+            
+            String s3Key = "doctors/" + prescription.getDoctorId() + "/prescriptions/" + prescriptionId + "/xray" + extension;
+            
+            // Upload to S3 - returns only the key
+            String key = s3Service.uploadFile(s3Key, file.getInputStream(), file.getSize(), file.getContentType());
+            return key;
         } catch (IOException ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store x-ray image");
         }
     }
 
-    public Path resolveFilePath(String filename) {
-        Path filePath = uploadDir.resolve(filename).normalize();
-        if (!filePath.startsWith(uploadDir) || !Files.exists(filePath)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
+    /**
+     * Get presigned URL for X-ray file
+     */
+    public String getXrayUrl(Long prescriptionId) {
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prescription not found"));
+        
+        String xrayKey = prescription.getXrayImageUrl();
+        if (xrayKey == null || xrayKey.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "X-ray not found for prescription");
         }
-        return filePath;
+        
+        return s3Service.generateUrl(xrayKey, S3Service.FileType.XRAY);
+    }
+
+    /**
+     * Update prescription with PDF key after PDF generation
+     */
+    @Transactional
+    public void updatePrescriptionPdfKey(Long prescriptionId, String pdfKey) {
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prescription not found"));
+        prescription.setPdfUrl(pdfKey);
+        prescriptionRepository.save(prescription);
+        log.info("Updated prescription {} with PDF key: {}", prescriptionId, pdfKey);
+    }
+
+    /**
+     * Get presigned URL for prescription PDF
+     */
+    public String getPrescriptionPdfUrl(Long prescriptionId) {
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prescription not found"));
+        
+        String pdfKey = prescription.getPdfUrl();
+        if (pdfKey == null || pdfKey.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "PDF not found for prescription");
+        }
+        
+        return s3Service.generateUrl(pdfKey, S3Service.FileType.PRESCRIPTION_PDF);
     }
 
     private void softValidateMedicine(String name, String type) {
@@ -466,14 +508,6 @@ public class PrescriptionService {
 
     private PatientResponseDTO validatePatientOwnership(Long patientId, String token) {
         return patientClient.getPatientById(patientId, token);
-    }
-
-    private void initializeUploadDirectory() {
-        try {
-            Files.createDirectories(uploadDir);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to initialize uploads directory", ex);
-        }
     }
 
     private List<TabletDTO> buildTabletDtos(Long prescriptionId) {

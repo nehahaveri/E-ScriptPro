@@ -6,12 +6,7 @@ import com.escriptpro.doctor_service.entity.Doctor;
 import com.escriptpro.doctor_service.repository.DoctorRepository;
 import com.escriptpro.doctor_service.validation.PhoneNumberValidator;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
-import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,10 +18,11 @@ public class DoctorService {
     private static final String DEFAULT_PHONE_REGION = "IN";
 
     private final DoctorRepository doctorRepository;
-    private final Path uploadDir = Paths.get("uploads");
+    private final S3Service s3Service;
 
-    public DoctorService(DoctorRepository doctorRepository) {
+    public DoctorService(DoctorRepository doctorRepository, S3Service s3Service) {
         this.doctorRepository = doctorRepository;
+        this.s3Service = s3Service;
     }
 
     public Doctor createDoctor(DoctorRegistrationRequest request) {
@@ -107,7 +103,7 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
-    public String uploadDoctorAsset(String email, String type, MultipartFile file, String baseUrl) {
+    public String uploadDoctorAsset(String email, String type, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
         }
@@ -125,32 +121,64 @@ public class DoctorService {
         }
 
         try {
-            Files.createDirectories(uploadDir);
-            String extension = getExtension(file.getOriginalFilename(), contentType);
-            String filename = normalizedType + "-" + UUID.randomUUID() + extension;
-            Path target = uploadDir.resolve(filename);
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-
-            String fileUrl = baseUrl + "/doctors/files/" + filename;
             Doctor doctor = getDoctorByEmail(email);
+            String extension = getExtension(file.getOriginalFilename(), contentType);
+            
+            // S3 key format: doctors/{doctorId}/{type}.png
+            String s3Key = "doctors/" + doctor.getId() + "/" + normalizedType + extension;
+            
+            // Upload to S3 - returns only the key
+            String key = s3Service.uploadFile(s3Key, file.getInputStream(), file.getSize(), contentType);
+            
+            // Store only the KEY, not the URL
             if (normalizedType.equals("logo")) {
-                doctor.setLogoUrl(fileUrl);
+                doctor.setLogoUrl(key);
             } else {
-                doctor.setSignatureUrl(fileUrl);
+                doctor.setSignatureUrl(key);
             }
             doctorRepository.save(doctor);
-            return fileUrl;
+            return key;
         } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store file");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store file: " + e.getMessage());
         }
     }
 
-    public Path resolveFilePath(String filename) {
-        Path filePath = uploadDir.resolve(filename).normalize();
-        if (!Files.exists(filePath)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
+    /**
+     * Get the S3 key for a doctor's logo
+     */
+    public String getLogoKey(String email) {
+        Doctor doctor = getDoctorByEmail(email);
+        String logoKey = doctor.getLogoUrl();
+        if (logoKey == null || logoKey.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Logo not found for doctor");
         }
-        return filePath;
+        return logoKey;
+    }
+
+    /**
+     * Get the S3 key for a doctor's signature
+     */
+    public String getSignatureKey(String email) {
+        Doctor doctor = getDoctorByEmail(email);
+        String signatureKey = doctor.getSignatureUrl();
+        if (signatureKey == null || signatureKey.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Signature not found for doctor");
+        }
+        return signatureKey;
+    }
+
+    /**
+     * Generate logo URL from key (public)
+     */
+    public String generateLogoUrl(String logoKey) {
+        return s3Service.generateUrl(logoKey, S3Service.FileType.LOGO);
+    }
+
+    /**
+     * Generate signature URL from key (presigned with 10 min expiry)
+     */
+    public String generateSignatureUrl(String signatureKey) {
+        return s3Service.generateUrl(signatureKey, S3Service.FileType.SIGNATURE);
     }
 
     private String getExtension(String originalFilename, String contentType) {

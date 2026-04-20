@@ -23,13 +23,16 @@ import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class PdfService {
 
@@ -50,6 +53,12 @@ public class PdfService {
     private static final Font TICK_FONT = new Font(Font.ZAPFDINGBATS, 9, Font.NORMAL, DARK_GREY);
     private static final String TICK_MARKER = "__TICK__";
     private static final String CROSS_MARKER = "__CROSS__";
+
+    private final S3Service s3Service;
+
+    public PdfService(S3Service s3Service) {
+        this.s3Service = s3Service;
+    }
 
     public byte[] generatePrescriptionPdf(PrescriptionRequestDTO request) {
         Document document = new Document(PageSize.A5, 18f, 18f, 18f, 20f);
@@ -73,6 +82,35 @@ public class PdfService {
         }
 
         return outputStream.toByteArray();
+    }
+
+    /**
+     * Generate PDF and store to S3, returning only the key
+     */
+    public String generateAndStorePrescriptionPdf(PrescriptionRequestDTO request, Long doctorId, Long prescriptionId) {
+        try {
+            byte[] pdfBytes = generatePrescriptionPdf(request);
+            
+            // S3 key format: doctors/{doctorId}/prescriptions/{prescriptionId}/prescription.pdf
+            String s3Key = "doctors/" + doctorId + "/prescriptions/" + prescriptionId + "/prescription.pdf";
+            
+            // Upload to S3 - returns only the key
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(pdfBytes);
+            String key = s3Service.uploadFile(s3Key, inputStream, pdfBytes.length, "application/pdf");
+            
+            log.info("PDF generated and stored to S3 for prescription {}", prescriptionId);
+            return key;
+        } catch (Exception e) {
+            log.error("Failed to generate and store PDF for prescription {}", prescriptionId, e);
+            throw new RuntimeException("Failed to generate and store PDF: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get presigned URL for a PDF from its key
+     */
+    public String getPdfUrl(String pdfKey) {
+        return s3Service.generateUrl(pdfKey, S3Service.FileType.PRESCRIPTION_PDF);
     }
 
     private void drawPageBackground(PdfWriter writer) {

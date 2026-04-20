@@ -4,6 +4,8 @@ import java.util.List;
 
 public class PrescriptionRequestDTO {
 
+    private Long doctorId;
+    private Long prescriptionId;
     private Long patientId;
     private String doctorName;
     private String doctorEmail;
@@ -41,6 +43,22 @@ public class PrescriptionRequestDTO {
     private List<OintmentDTO> ointments;
     private List<GelDTO> gels;
     private List<SuspensionDTO> suspensions;
+
+    public Long getDoctorId() {
+        return doctorId;
+    }
+
+    public void setDoctorId(Long doctorId) {
+        this.doctorId = doctorId;
+    }
+
+    public Long getPrescriptionId() {
+        return prescriptionId;
+    }
+
+    public void setPrescriptionId(Long prescriptionId) {
+        this.prescriptionId = prescriptionId;
+    }
 
     public Long getPatientId() {
         return patientId;
