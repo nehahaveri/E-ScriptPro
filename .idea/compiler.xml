@@ -3,6 +3,22 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
+      <profile name="Annotation profile for prescription-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.44/lombok-1.18.44.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.44/lombok-1.18.44.jar" />
+        </processorPath>
+        <module name="pdf-service" />
+        <module name="prescription-service" />
+        <module name="authservice" />
+        <module name="medicine-service" />
+        <module name="doctor-service" />
+        <module name="api-gateway" />
+        <module name="patient-service" />
+      </profile>
       <profile name="Annotation profile for receptionist-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
@@ -10,13 +26,6 @@
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.44/lombok-1.18.44.jar" />
         </processorPath>
-        <module name="pdf-service" />
-        <module name="authservice" />
-        <module name="prescription-service" />
-        <module name="medicine-service" />
-        <module name="doctor-service" />
-        <module name="api-gateway" />
-        <module name="patient-service" />
         <module name="receptionist-service" />
       </profile>
     </annotationProcessing>
