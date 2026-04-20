@@ -130,7 +130,7 @@ public class DoctorService {
             // Upload to S3 - returns only the key
             String key = s3Service.uploadFile(s3Key, file.getInputStream(), file.getSize(), contentType);
             
-            // Store only the KEY, not the URL
+            // Store only the S3 key in the doctor record
             if (normalizedType.equals("logo")) {
                 doctor.setLogoUrl(key);
             } else {
@@ -197,6 +197,16 @@ public class DoctorService {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid phone number");
         }
+    }
+
+    public String generateAssetUrl(String type, String key) {
+        String normalizedType = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+        if (normalizedType.equals("logo")) {
+            return s3Service.generateUrl(key, S3Service.FileType.LOGO);
+        } else if (normalizedType.equals("signature")) {
+            return s3Service.generateUrl(key, S3Service.FileType.SIGNATURE);
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type must be logo or signature");
     }
 
     private String trimToNull(String value) {

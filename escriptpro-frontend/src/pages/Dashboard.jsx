@@ -416,6 +416,7 @@ const formatDisplayTime = (value) => {
 }
 
 const formatAppointmentLabel = (date, time) => [formatDisplayDate(date), formatDisplayTime(time)].filter(Boolean).join(' | ')
+const isAbsoluteUrl = (value) => typeof value === 'string' && /^(https?:)?\/\//i.test(value)
 const GOOGLE_PENDING_PATIENT_KEY = 'googleCalendarPendingPatientId'
 const GOOGLE_PENDING_ROUTE_KEY = 'googleCalendarPendingRoute'
 
@@ -451,6 +452,7 @@ function Dashboard() {
     logoUrl: '',
     signatureUrl: '',
   })
+  const [assetPreviewUrls, setAssetPreviewUrls] = useState({ logoUrl: '', signatureUrl: '' })
   const [profileMessage, setProfileMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -755,20 +757,43 @@ function Dashboard() {
       ])
 
       if (doctorRes.status === 'fulfilled') {
-        setDoctor(doctorRes.value.data)
+        const doctorData = doctorRes.value.data
+        setDoctor(doctorData)
+
+        const loadedLogoUrl = doctorData?.logoUrl || ''
+        const loadedSignatureUrl = doctorData?.signatureUrl || ''
+        let previewLogoUrl = ''
+        let previewSignatureUrl = ''
+
+        if (loadedLogoUrl) {
+          previewLogoUrl = isAbsoluteUrl(loadedLogoUrl)
+            ? loadedLogoUrl
+            : (await api.get('/doctors/logo').then((res) => res.data?.url).catch(() => ''))
+        }
+        if (loadedSignatureUrl) {
+          previewSignatureUrl = isAbsoluteUrl(loadedSignatureUrl)
+            ? loadedSignatureUrl
+            : (await api.get('/doctors/signature').then((res) => res.data?.url).catch(() => ''))
+        }
+
+        setAssetPreviewUrls({
+          logoUrl: previewLogoUrl,
+          signatureUrl: previewSignatureUrl,
+        })
+
         setDoctorForm({
-          name: doctorRes.value.data?.name || '',
-          phone: doctorRes.value.data?.phone || '',
-          clinicName: doctorRes.value.data?.clinicName || '',
-          locality: doctorRes.value.data?.locality || '',
-          specialization: doctorRes.value.data?.specialization || '',
-          education: doctorRes.value.data?.education || '',
+          name: doctorData?.name || '',
+          phone: doctorData?.phone || '',
+          clinicName: doctorData?.clinicName || '',
+          locality: doctorData?.locality || '',
+          specialization: doctorData?.specialization || '',
+          education: doctorData?.education || '',
           experience:
-            doctorRes.value.data?.experience !== null && doctorRes.value.data?.experience !== undefined
-              ? String(doctorRes.value.data.experience)
+            doctorData?.experience !== null && doctorData?.experience !== undefined
+              ? String(doctorData.experience)
               : '',
-          logoUrl: doctorRes.value.data?.logoUrl || '',
-          signatureUrl: doctorRes.value.data?.signatureUrl || '',
+          logoUrl: loadedLogoUrl,
+          signatureUrl: loadedSignatureUrl,
         })
       } else {
         setDoctor(null)
@@ -897,17 +922,17 @@ function Dashboard() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       const uploadedUrl = uploadRes.data?.url
+      const uploadedKey = uploadRes.data?.key
       if (!uploadedUrl) {
         return
       }
-      const updated = { ...doctorForm, [`${type}Url`]: uploadedUrl }
-      setDoctorForm(updated)
-      const payload = {
-        ...updated,
-        experience: updated.experience === '' ? null : Number(updated.experience),
+
+      setAssetPreviewUrls((prev) => ({ ...prev, [`${type}Url`]: uploadedUrl }))
+      if (uploadedKey) {
+        setDoctorForm((prev) => ({ ...prev, [`${type}Url`]: uploadedKey }))
+        setDoctor((prev) => (prev ? { ...prev, [`${type}Url`]: uploadedKey } : prev))
       }
-      const response = await api.put('/doctors/me', payload)
-      setDoctor(response.data)
+
       setProfileMessage(`${type === 'logo' ? 'Logo' : 'Signature'} uploaded successfully.`)
     } catch (err) {
       setError(err.response?.data?.message || 'File upload failed.')
@@ -1875,9 +1900,9 @@ function Dashboard() {
                         className="glass-input border-dashed"
                         onChange={(e) => uploadAsset('logo', e.target.files?.[0])}
                       />
-                      {doctorForm.logoUrl && (
+                      {(assetPreviewUrls.logoUrl || isAbsoluteUrl(doctorForm.logoUrl)) && (
                         <img
-                          src={doctorForm.logoUrl}
+                          src={assetPreviewUrls.logoUrl || doctorForm.logoUrl}
                           alt="Logo preview"
                           className="h-20 w-full rounded-[22px] border border-white/60 bg-white/75 object-contain"
                         />
@@ -1898,9 +1923,9 @@ function Dashboard() {
                         className="glass-input border-dashed"
                         onChange={(e) => uploadAsset('signature', e.target.files?.[0])}
                       />
-                      {doctorForm.signatureUrl && (
+                      {(assetPreviewUrls.signatureUrl || isAbsoluteUrl(doctorForm.signatureUrl)) && (
                         <img
-                          src={doctorForm.signatureUrl}
+                          src={assetPreviewUrls.signatureUrl || doctorForm.signatureUrl}
                           alt="Signature preview"
                           className="h-20 w-full rounded-[22px] border border-white/60 bg-white/75 object-contain"
                         />

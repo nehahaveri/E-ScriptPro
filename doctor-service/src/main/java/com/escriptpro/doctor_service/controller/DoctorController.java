@@ -75,8 +75,9 @@ public class DoctorController {
             @RequestParam("type") String type) {
         String token = extractBearerToken(authorizationHeader);
         String email = jwtUtil.extractUsername(token);
-        doctorService.uploadDoctorAsset(email, type, file);
-        return new FileUploadResponseDTO("Uploaded successfully", "Uploaded successfully");
+        String key = doctorService.uploadDoctorAsset(email, type, file);
+        String uploadedUrl = doctorService.generateAssetUrl(type, key);
+        return new FileUploadResponseDTO(uploadedUrl, key, "Uploaded successfully");
     }
 
     @GetMapping("/logo")
@@ -85,7 +86,7 @@ public class DoctorController {
         String email = jwtUtil.extractUsername(token);
         String key = doctorService.getLogoKey(email);
         String url = doctorService.generateLogoUrl(key);
-        return new FileUploadResponseDTO(url, "Logo URL");
+        return new FileUploadResponseDTO(url, key, "Logo URL");
     }
 
     @GetMapping("/signature")
@@ -94,7 +95,7 @@ public class DoctorController {
         String email = jwtUtil.extractUsername(token);
         String key = doctorService.getSignatureKey(email);
         String url = doctorService.generateSignatureUrl(key);
-        return new FileUploadResponseDTO(url, "Signature URL");
+        return new FileUploadResponseDTO(url, key, "Signature URL");
     }
 
     private String extractBearerToken(String authorizationHeader) {
