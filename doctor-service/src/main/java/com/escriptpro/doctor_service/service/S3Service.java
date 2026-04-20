@@ -24,7 +24,7 @@ import java.time.Duration;
 public class S3Service {
 
     public enum FileType {
-        LOGO(null),              // Public - no presigned URL
+        LOGO(Duration.ofMinutes(10)),        // Signed URL with 10 min expiry
         SIGNATURE(Duration.ofMinutes(10)),
         PRESCRIPTION_PDF(Duration.ofMinutes(5)),
         XRAY(Duration.ofMinutes(5));
