@@ -4,28 +4,22 @@ import com.escriptpro.prescription_service.dto.FileUploadResponseDTO;
 import com.escriptpro.prescription_service.dto.FollowUpAppointmentDTO;
 import com.escriptpro.prescription_service.dto.PrescriptionRequestDTO;
 import com.escriptpro.prescription_service.entity.Prescription;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import com.escriptpro.prescription_service.service.PrescriptionService;
 import com.escriptpro.prescription_service.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -118,25 +112,44 @@ public class PrescriptionController {
     @PostMapping("/upload-xray")
     public FileUploadResponseDTO uploadXray(
             @RequestParam("file") MultipartFile file,
+            @RequestParam("prescriptionId") Long prescriptionId,
             HttpServletRequest httpRequest) {
         String authorizationHeader = httpRequest.getHeader("Authorization");
         extractBearerToken(authorizationHeader);
-        String baseUrl = httpRequest.getScheme() + "://" + httpRequest.getServerName() + ":" + httpRequest.getServerPort();
-        String fileUrl = prescriptionService.uploadXray(file, baseUrl);
-        return new FileUploadResponseDTO(fileUrl, "Uploaded successfully");
+        prescriptionService.uploadXray(prescriptionId, file);
+        return new FileUploadResponseDTO("Uploaded successfully", "Uploaded successfully");
     }
 
-    @GetMapping("/files/{filename:.+}")
-    public ResponseEntity<ByteArrayResource> getUploadedFile(@PathVariable String filename) throws IOException {
-        Path filePath = prescriptionService.resolveFilePath(filename);
-        byte[] fileBytes = Files.readAllBytes(filePath);
-        String lower = filename.toLowerCase();
-        MediaType mediaType = lower.endsWith(".png") ? MediaType.IMAGE_PNG : MediaType.IMAGE_JPEG;
+    @GetMapping("/{prescriptionId}/xray-url")
+    public FileUploadResponseDTO getXrayUrl(
+            @PathVariable Long prescriptionId,
+            HttpServletRequest httpRequest) {
+        String authorizationHeader = httpRequest.getHeader("Authorization");
+        extractBearerToken(authorizationHeader);
+        String fileUrl = prescriptionService.getXrayUrl(prescriptionId);
+        return new FileUploadResponseDTO(fileUrl, "X-ray URL");
+    }
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                .contentType(mediaType)
-                .body(new ByteArrayResource(fileBytes));
+    @PutMapping("/{id}/update-pdf-key")
+    public ResponseEntity<Void> updatePrescriptionPdfKey(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String pdfKey = request.get("pdfKey");
+        if (pdfKey == null || pdfKey.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "pdfKey is required");
+        }
+        prescriptionService.updatePrescriptionPdfKey(id, pdfKey);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{prescriptionId}/pdf-url")
+    public FileUploadResponseDTO getPrescriptionPdfUrl(
+            @PathVariable Long prescriptionId,
+            HttpServletRequest httpRequest) {
+        String authorizationHeader = httpRequest.getHeader("Authorization");
+        extractBearerToken(authorizationHeader);
+        String fileUrl = prescriptionService.getPrescriptionPdfUrl(prescriptionId);
+        return new FileUploadResponseDTO(fileUrl, "Prescription PDF URL");
     }
 
     private String extractBearerToken(String authorizationHeader) {

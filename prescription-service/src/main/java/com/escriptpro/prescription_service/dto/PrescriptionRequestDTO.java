@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PrescriptionRequestDTO {
 
+    private Long doctorId;
+    private Long prescriptionId;
     private Long patientId;
 
     private String doctorName;

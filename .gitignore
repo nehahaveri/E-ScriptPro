@@ -3,7 +3,6 @@
 Thumbs.db
 
 # IDE / editor files
-.idea/
 .vscode/
 *.iml
 *.ipr

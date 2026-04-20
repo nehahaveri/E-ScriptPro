@@ -67,6 +67,8 @@ public class Prescription {
 
     private String xrayImageUrl;
 
+    private String pdfUrl;
+
     private String advice;
 
     private Integer consultationFee;
