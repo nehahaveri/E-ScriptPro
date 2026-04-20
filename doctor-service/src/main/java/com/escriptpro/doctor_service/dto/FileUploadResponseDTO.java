@@ -10,5 +10,6 @@ import lombok.NoArgsConstructor;
 public class FileUploadResponseDTO {
 
     private String url;
+    private String key;
     private String message;
 }
