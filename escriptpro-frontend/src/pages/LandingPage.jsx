@@ -587,7 +587,7 @@ function Testimonial() {
             {[...Array(5)].map((_, i) => <Star key={i} size={16} fill="currentColor" />)}
           </div>
           <blockquote className="mt-8 text-[clamp(1.2rem,2.5vw,1.6rem)] font-medium leading-[1.5] tracking-[-0.01em] text-[#1d2d50]">
-            "GP-ScriptPro replaced our paper prescriptions overnight. The autocomplete and instant PDF export
+            "JustGP-Rx replaced our paper prescriptions overnight. The autocomplete and instant PDF export
             save us over an hour every day."
           </blockquote>
           <div className="mt-8">
@@ -662,7 +662,7 @@ function Footer() {
           <img src="/favicon.svg" alt="" className="h-5 w-5 opacity-60" />
           <span className="text-[13px] font-semibold text-slate-400">GP-Script<span className="text-slate-500">Pro</span></span>
         </div>
-        <p className="text-[11px] text-slate-400">© {new Date().getFullYear()} GP-ScriptPro. All rights reserved.</p>
+        <p className="text-[11px] text-slate-400">© {new Date().getFullYear()} JustGP-Rx. All rights reserved.</p>
         <div className="flex items-center gap-8">
           <a href="#features" className="text-[12px] text-slate-400 transition hover:text-slate-600">Features</a>
           <a href="#story" className="text-[12px] text-slate-400 transition hover:text-slate-600">Story</a>

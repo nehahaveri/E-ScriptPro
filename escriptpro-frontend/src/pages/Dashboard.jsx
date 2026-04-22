@@ -154,6 +154,7 @@ const emptySuspension = {
 }
 
 const weekDayOptions = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+const autoQuantityTypes = new Set(['TABLET', 'CAPSULE'])
 
 const medicineTypeOptions = [
   { value: 'TABLET', label: 'Tablet' },
@@ -338,6 +339,35 @@ const normalizeWeeklyDays = (scheduleType, weeklyDays) => {
   return weekDayOptions.filter((day) => selectedDays.has(day))
 }
 
+const getAutoQuantity = (medicineType, medicineDraft) => {
+  if (!autoQuantityTypes.has(medicineType)) {
+    return medicineDraft.quantity ?? ''
+  }
+
+  const duration = Number(medicineDraft.duration)
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return ''
+  }
+
+  const dosesPerCycle = ['morning', 'afternoon', 'night'].reduce(
+    (count, timing) => count + (medicineDraft[timing] ? 1 : 0),
+    0
+  )
+  if (dosesPerCycle <= 0) {
+    return ''
+  }
+
+  if (medicineDraft.scheduleType === 'WEEKLY') {
+    const selectedDaysCount = normalizeWeeklyDays('WEEKLY', medicineDraft.weeklyDays).length
+    if (selectedDaysCount <= 0) {
+      return ''
+    }
+    return dosesPerCycle * selectedDaysCount * duration
+  }
+
+  return dosesPerCycle * duration
+}
+
 const resolvePatientNumber = (patient) => patient?.patientNumber ?? patient?.id ?? '-'
 
 const patientInitials = (name) =>
@@ -483,7 +513,7 @@ function Dashboard() {
   const [newPatientAppointmentTimeFocused, setNewPatientAppointmentTimeFocused] = useState(false)
   const newPatientAppointmentTimeInputRef = useRef(null)
 
-  const [prescriptionMode, setPrescriptionMode] = useState('PATIENT')
+  const [prescriptionMode, setPrescriptionMode] = useState('QUICK')
   const [showClinicalNotes, setShowClinicalNotes] = useState(false)
   const [complaints, setComplaints] = useState('')
   const [examination, setExamination] = useState('')
@@ -519,6 +549,7 @@ function Dashboard() {
   const [suspensions, setSuspensions] = useState([])
   const [suggestions, setSuggestions] = useState({})
   const suggestionCacheRef = useRef(new Map())
+  const [editingMedicine, setEditingMedicine] = useState(null)
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
   const [darkMode, setDarkMode] = useState(() => {
@@ -1032,7 +1063,13 @@ function Dashboard() {
   }
 
   const updateMedicineDraft = (field, value) => {
-    setMedicineDraft((prev) => ({ ...prev, [field]: value }))
+    setMedicineDraft((prev) => {
+      const nextDraft = { ...prev, [field]: value }
+      return {
+        ...nextDraft,
+        quantity: getAutoQuantity(selectedMedicineType, nextDraft),
+      }
+    })
   }
 
   const selectService = (serviceKey) => {
@@ -1117,6 +1154,7 @@ function Dashboard() {
 
   const handleMedicineTypeChange = (nextType) => {
     setSelectedMedicineType(nextType)
+    setEditingMedicine(null)
     setMedicineDraft(createEmptyMedicineDraft(nextType))
     setSuggestions((prev) => ({
       ...prev,
@@ -1126,14 +1164,20 @@ function Dashboard() {
   }
 
   const updateMedicineSchedule = (scheduleType) => {
-    setMedicineDraft((prev) => ({
-      ...prev,
-      scheduleType,
-      daily: selectedMedicineType === 'INJECTION' ? scheduleType === 'DAILY' : prev.daily,
-      weeklyOnce: selectedMedicineType === 'INJECTION' ? scheduleType === 'WEEKLY' : prev.weeklyOnce,
-      alternateDay: selectedMedicineType === 'INJECTION' ? scheduleType === 'ALTERNATE_DAY' : prev.alternateDay,
-      weeklyDays: scheduleType === 'WEEKLY' ? prev.weeklyDays || [] : [],
-    }))
+    setMedicineDraft((prev) => {
+      const nextDraft = {
+        ...prev,
+        scheduleType,
+        daily: selectedMedicineType === 'INJECTION' ? scheduleType === 'DAILY' : prev.daily,
+        weeklyOnce: selectedMedicineType === 'INJECTION' ? scheduleType === 'WEEKLY' : prev.weeklyOnce,
+        alternateDay: selectedMedicineType === 'INJECTION' ? scheduleType === 'ALTERNATE_DAY' : prev.alternateDay,
+        weeklyDays: scheduleType === 'WEEKLY' ? prev.weeklyDays || [] : [],
+      }
+      return {
+        ...nextDraft,
+        quantity: getAutoQuantity(selectedMedicineType, nextDraft),
+      }
+    })
   }
 
   const toggleWeeklyDay = (day) => {
@@ -1149,8 +1193,102 @@ function Dashboard() {
       return {
         ...prev,
         weeklyDays: normalizeWeeklyDays(prev.scheduleType, nextDays),
+        quantity: getAutoQuantity(selectedMedicineType, { ...prev, weeklyDays: normalizeWeeklyDays(prev.scheduleType, nextDays) }),
       }
     })
+  }
+
+  const getMedicinesByType = (type) => {
+    if (type === 'TABLET') return tablets
+    if (type === 'CAPSULE') return capsules
+    if (type === 'SYRUP') return syrups
+    if (type === 'LOTION') return lotions
+    if (type === 'CREAM') return creams
+    if (type === 'OINTMENT') return ointments
+    if (type === 'GEL') return gels
+    if (type === 'SUSPENSION') return suspensions
+    return injections
+  }
+
+  const setMedicinesByType = (type, updater) => {
+    if (type === 'TABLET') {
+      setTablets(updater)
+      return
+    }
+    if (type === 'CAPSULE') {
+      setCapsules(updater)
+      return
+    }
+    if (type === 'SYRUP') {
+      setSyrups(updater)
+      return
+    }
+    if (type === 'LOTION') {
+      setLotions(updater)
+      return
+    }
+    if (type === 'CREAM') {
+      setCreams(updater)
+      return
+    }
+    if (type === 'OINTMENT') {
+      setOintments(updater)
+      return
+    }
+    if (type === 'GEL') {
+      setGels(updater)
+      return
+    }
+    if (type === 'SUSPENSION') {
+      setSuspensions(updater)
+      return
+    }
+    setInjections(updater)
+  }
+
+  const resetMedicineBuilder = (type) => {
+    setSuggestions((prev) => ({
+      ...prev,
+      [`${type.toLowerCase()}-draft-brand`]: [],
+      [`${type.toLowerCase()}-draft-name`]: [],
+      [`${type.toLowerCase()}-draft-combined`]: [],
+    }))
+    setMedicineDraft(createEmptyMedicineDraft(type))
+    setEditingMedicine(null)
+  }
+
+  const editMedicine = (type, index) => {
+    const items = getMedicinesByType(type)
+    const selectedItem = items[index]
+    if (!selectedItem) {
+      return
+    }
+    const nextDraft = {
+      ...createEmptyMedicineDraft(type),
+      ...selectedItem,
+      weeklyDays: normalizeWeeklyDays(selectedItem.scheduleType, selectedItem.weeklyDays),
+    }
+    setSelectedMedicineType(type)
+    setEditingMedicine({ type, index })
+    setMedicineDraft({
+      ...nextDraft,
+      quantity: getAutoQuantity(type, nextDraft),
+    })
+    setError('')
+  }
+
+  const upsertMedicine = (type, draft) => {
+    const finalDraft = {
+      ...draft,
+      weeklyDays: normalizeWeeklyDays(draft.scheduleType, draft.weeklyDays),
+    }
+    const isEditingCurrentType = editingMedicine && editingMedicine.type === type
+    setMedicinesByType(type, (prev) =>
+      isEditingCurrentType
+        ? prev.map((item, index) => (index === editingMedicine.index ? finalDraft : item))
+        : [...prev, finalDraft]
+    )
+    resetMedicineBuilder(type)
   }
 
   const addMedicine = () => {
@@ -1165,85 +1303,15 @@ function Dashboard() {
       setError(`Select at least one day for a weekly ${selectedMedicineType.toLowerCase()}.`)
       return
     }
-
-    const finalDraft = { ...medicineDraft, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) }
-
-    if (selectedMedicineType === 'TABLET') {
-      setTablets((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'CAPSULE') {
-      setCapsules((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'SYRUP') {
-      setSyrups((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'LOTION') {
-      setLotions((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'CREAM') {
-      setCreams((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'OINTMENT') {
-      setOintments((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'GEL') {
-      setGels((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'SUSPENSION') {
-      setSuspensions((prev) => [...prev, finalDraft])
-    } else {
-      setInjections((prev) => [...prev, finalDraft])
-    }
-
-    setSuggestions((prev) => ({
-      ...prev,
-      [combinedSuggestionKey]: [],
-    }))
-    setMedicineDraft(createEmptyMedicineDraft(selectedMedicineType))
+    upsertMedicine(selectedMedicineType, medicineDraft)
   }
 
   const handleFoodInstructionSelect = (instruction) => {
-    if (!hasMedicineValue(selectedMedicineType, medicineDraft)) {
-      updateMedicineDraft('instruction', instruction)
-      return
-    }
-    const finalDraft = { ...medicineDraft, instruction, weeklyDays: normalizeWeeklyDays(medicineDraft.scheduleType, medicineDraft.weeklyDays) }
-    if (selectedMedicineType === 'TABLET') {
-      setTablets((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'CAPSULE') {
-      setCapsules((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'SYRUP') {
-      setSyrups((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'LOTION') {
-      setLotions((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'CREAM') {
-      setCreams((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'OINTMENT') {
-      setOintments((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'GEL') {
-      setGels((prev) => [...prev, finalDraft])
-    } else if (selectedMedicineType === 'SUSPENSION') {
-      setSuspensions((prev) => [...prev, finalDraft])
-    }
-    setSuggestions((prev) => ({
-      ...prev,
-      [`${selectedMedicineType.toLowerCase()}-draft-combined`]: [],
-    }))
-    setMedicineDraft(createEmptyMedicineDraft(selectedMedicineType))
+    updateMedicineDraft('instruction', instruction)
   }
 
   const handleInjectionScheduleAndAdd = (scheduleType) => {
     updateMedicineSchedule(scheduleType)
-    if (!hasMedicineValue('INJECTION', medicineDraft)) return
-    const finalDraft = {
-      ...medicineDraft,
-      scheduleType,
-      daily: scheduleType === 'DAILY',
-      weeklyOnce: scheduleType === 'WEEKLY',
-      alternateDay: scheduleType === 'ALTERNATE_DAY',
-    }
-    setInjections((prev) => [
-      ...prev,
-      { ...finalDraft, weeklyDays: normalizeWeeklyDays(finalDraft.scheduleType, finalDraft.weeklyDays) },
-    ])
-    setSuggestions((prev) => ({
-      ...prev,
-      ['injection-draft-combined']: [],
-    }))
-    setMedicineDraft(createEmptyMedicineDraft('INJECTION'))
   }
 
   const uploadXray = async (file) => {
@@ -1268,39 +1336,18 @@ function Dashboard() {
   }
 
   const removeMedicine = (type, index) => {
-    if (type === 'TABLET') {
-      setTablets((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
+    setMedicinesByType(type, (prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+    if (editingMedicine?.type === type) {
+      if (editingMedicine.index === index) {
+        resetMedicineBuilder(type)
+        return
+      }
+      if (editingMedicine.index > index) {
+        setEditingMedicine((prev) =>
+          prev && prev.type === type ? { ...prev, index: prev.index - 1 } : prev
+        )
+      }
     }
-    if (type === 'CAPSULE') {
-      setCapsules((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    if (type === 'SYRUP') {
-      setSyrups((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    if (type === 'LOTION') {
-      setLotions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    if (type === 'CREAM') {
-      setCreams((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    if (type === 'OINTMENT') {
-      setOintments((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    if (type === 'GEL') {
-      setGels((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    if (type === 'SUSPENSION') {
-      setSuspensions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-      return
-    }
-    setInjections((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
     const brandSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-brand`
@@ -1552,7 +1599,7 @@ function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">GP-ScriptPro</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">JustGP-Rx</p>
               <button onClick={() => setMobileMenuOpen(false)} className="rounded-full p-1.5 text-slate-400 hover:text-slate-600">
                 <X className="h-4 w-4" />
               </button>
@@ -1617,7 +1664,7 @@ function Dashboard() {
             <Menu className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">GP-ScriptPro</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">JustGP-Rx</p>
             <h1 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
               {isReceptionist ? 'Receptionist Dashboard' : 'Dashboard'}
             </h1>
@@ -2272,7 +2319,6 @@ function Dashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                   <div>
                     <p className="glass-kicker text-[10px]">Prescription Studio</p>
-                    <h2 className="glass-heading text-base font-semibold">Build & export prescription</h2>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {selectedPatient ? (
@@ -2299,18 +2345,18 @@ function Dashboard() {
                     <label className="glass-pill gap-2 rounded-full px-3 py-2">
                       <input
                         type="radio"
-                        checked={prescriptionMode === 'PATIENT'}
-                        onChange={() => setPrescriptionMode('PATIENT')}
-                      />
-                      Patient-Based
-                    </label>
-                    <label className="glass-pill gap-2 rounded-full px-3 py-2">
-                      <input
-                        type="radio"
                         checked={prescriptionMode === 'QUICK'}
                         onChange={() => setPrescriptionMode('QUICK')}
                       />
                       Quick Prescription
+                    </label>
+                    <label className="glass-pill gap-2 rounded-full px-3 py-2">
+                      <input
+                        type="radio"
+                        checked={prescriptionMode === 'PATIENT'}
+                        onChange={() => setPrescriptionMode('PATIENT')}
+                      />
+                      Patient-Based
                     </label>
                   </div>
 
@@ -2346,17 +2392,6 @@ function Dashboard() {
                           type="checkbox"
                           checked={showClinicalNotes}
                           onChange={(e) => setShowClinicalNotes(e.target.checked)}
-                        />
-                      </label>
-                      <label className="glass-well flex flex-col justify-center px-4 py-3 shadow-sm">
-                        <span className="text-xs font-medium text-slate-600">Follow up date</span>
-                        <input
-                          type="date"
-                          className="glass-input mt-1 px-3 py-2"
-                          aria-label="Follow up date"
-                          title="Follow up date"
-                          value={followUpDate}
-                          onChange={(e) => setFollowUpDate(e.target.value)}
                         />
                       </label>
                     </div>
@@ -2426,14 +2461,21 @@ function Dashboard() {
                     </div>
 
                     <div className="glass-well section-chroma-soft p-4 space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
                         <div className="flex items-center gap-2">
                           <Pill className="h-4 w-4 text-cyan-700" />
                           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Medicine Builder</span>
                         </div>
-                        <div>
+                        {editingMedicine && (
+                          <span className="glass-pill text-[10px] font-medium text-amber-700">
+                            Editing {editingMedicine.type.toLowerCase()} #{editingMedicine.index + 1}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        <div className="flex gap-2">
                           <select
-                            className="glass-input text-xs py-1 px-2"
+                            className="glass-input w-[140px] flex-shrink-0 px-2 py-1 text-xs sm:w-[160px]"
                             value={selectedMedicineType}
                             onChange={(e) => handleMedicineTypeChange(e.target.value)}
                           >
@@ -2447,10 +2489,6 @@ function Dashboard() {
                             <option value="GEL">Gel</option>
                             <option value="SUSPENSION">Suspension</option>
                           </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <div className="flex gap-2">
                           <div className="flex-1">
                             <AutocompleteInput
                               value={medicineDraft.name}
@@ -2564,9 +2602,7 @@ function Dashboard() {
                               type="number"
                               className="glass-input px-2 py-1 text-xs"
                               value={medicineDraft.quantity ?? ''}
-                              onChange={(e) =>
-                                updateMedicineDraft('quantity', e.target.value === '' ? '' : Number(e.target.value))
-                              }
+                              readOnly
                               placeholder="Quantity"
                             />
                           </div>
@@ -2898,6 +2934,24 @@ function Dashboard() {
                           </div>
                         </div>
                       )}
+                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 pt-3">
+                        {editingMedicine && (
+                          <button
+                            type="button"
+                            onClick={() => resetMedicineBuilder(selectedMedicineType)}
+                            className="button-glass-secondary min-h-0 px-3 py-1.5 text-xs"
+                          >
+                            Cancel Edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={addMedicine}
+                          className="button-glass min-h-0 px-3 py-1.5 text-xs"
+                        >
+                          {editingMedicine ? 'Update Medicine' : 'Add Medicine'}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -2905,59 +2959,88 @@ function Dashboard() {
                         title="Tablets"
                         items={tablets}
                         type="TABLET"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('TABLET', index)}
                         onRemove={(index) => removeMedicine('TABLET', index)}
                       />
                       <MedicineList
                         title="Capsules"
                         items={capsules}
                         type="CAPSULE"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('CAPSULE', index)}
                         onRemove={(index) => removeMedicine('CAPSULE', index)}
                       />
                       <MedicineList
                         title="Syrups"
                         items={syrups}
                         type="SYRUP"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('SYRUP', index)}
                         onRemove={(index) => removeMedicine('SYRUP', index)}
                       />
                       <MedicineList
                         title="Injections"
                         items={injections}
                         type="INJECTION"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('INJECTION', index)}
                         onRemove={(index) => removeMedicine('INJECTION', index)}
                       />
                       <MedicineList
                         title="Lotions"
                         items={lotions}
                         type="LOTION"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('LOTION', index)}
                         onRemove={(index) => removeMedicine('LOTION', index)}
                       />
                       <MedicineList
                         title="Creams"
                         items={creams}
                         type="CREAM"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('CREAM', index)}
                         onRemove={(index) => removeMedicine('CREAM', index)}
                       />
                       <MedicineList
                         title="Ointments"
                         items={ointments}
                         type="OINTMENT"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('OINTMENT', index)}
                         onRemove={(index) => removeMedicine('OINTMENT', index)}
                       />
                       <MedicineList
                         title="Gels"
                         items={gels}
                         type="GEL"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('GEL', index)}
                         onRemove={(index) => removeMedicine('GEL', index)}
                       />
                       <MedicineList
                         title="Suspensions"
                         items={suspensions}
                         type="SUSPENSION"
+                        editingMedicine={editingMedicine}
+                        onEdit={(index) => editMedicine('SUSPENSION', index)}
                         onRemove={(index) => removeMedicine('SUSPENSION', index)}
                       />
                     </div>
 
-                    <div className="glass-well section-chroma-soft p-4">
+                    <div className="glass-well section-chroma-soft space-y-3 p-4">
+                      <label className="flex flex-col gap-1 lg:max-w-[300px]">
+                        <span className="text-xs font-medium text-slate-600">Follow up date</span>
+                        <input
+                          type="date"
+                          className="glass-input"
+                          aria-label="Follow up date"
+                          title="Follow up date"
+                          value={followUpDate}
+                          onChange={(e) => setFollowUpDate(e.target.value)}
+                        />
+                      </label>
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(240px,300px),1fr] lg:items-end">
                         <label className="flex flex-col gap-1">
                           <span className="text-xs font-medium text-slate-600">Consultation Fee</span>
@@ -3000,23 +3083,50 @@ function Dashboard() {
   )
 }
 
-function MedicineList({ title, items, type, onRemove }) {
+function MedicineList({ title, items, type, onEdit, onRemove, editingMedicine }) {
   return (
     <div className="glass-well space-y-2 p-3">
       <h3 className="text-sm font-medium text-slate-900">{title}</h3>
       {items.length === 0 && <p className="text-xs text-slate-500">No medicines added.</p>}
-      {items.map((item, index) => (
-        <div key={`${title}-${index}`} className="glass-well rounded-xl p-3 space-y-2">
-          <p className="text-sm text-slate-700">{summarizeMedicine(type, item)}</p>
-          <button
-            type="button"
-            onClick={() => onRemove(index)}
-            className="button-glass-danger min-h-0 rounded-lg px-2 py-1 text-xs"
-          >
-            Remove
-          </button>
+      {items.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-white/60 bg-white/65">
+          <div className="grid grid-cols-[44px,minmax(0,1fr),auto] gap-2 border-b border-white/80 bg-white/70 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+            <span>No.</span>
+            <span>Medicine</span>
+            <span>Actions</span>
+          </div>
+          {items.map((item, index) => (
+            <div
+              key={`${title}-${index}`}
+              className={`grid grid-cols-[44px,minmax(0,1fr),auto] gap-2 border-b border-white/70 px-2 py-2 last:border-b-0 ${
+                editingMedicine?.type === type && editingMedicine?.index === index ? 'bg-cyan-50/70' : 'bg-white/35'
+              }`}
+            >
+              <span className="text-xs font-semibold text-slate-700">{index + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-800">{item.name || 'Unnamed medicine'}</p>
+                <p className="text-[11px] text-slate-600">{summarizeMedicine(type, item)}</p>
+              </div>
+              <div className="flex items-start gap-1">
+                <button
+                  type="button"
+                  onClick={() => onEdit(index)}
+                  className="button-glass-secondary min-h-0 rounded-md px-2 py-1 text-[11px]"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(index)}
+                  className="button-glass-danger min-h-0 rounded-md px-2 py-1 text-[11px]"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }
