@@ -138,7 +138,7 @@ function Login() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.28em]">
               <span className="text-black">JustGP</span>
               <span className="text-black">-</span>
-              <span className="text-[#3A7BD5]">Rx</span>
+              <span className="text-black">Rx</span>
             </p>
             <h2 className="mt-3 text-2xl font-bold leading-tight text-white">Digital Prescriptions,<br />Simplified.</h2>
             <p className="mt-4 text-sm leading-6 text-white/75">Manage patients, generate prescriptions, and streamline your practice — all in one place.</p>

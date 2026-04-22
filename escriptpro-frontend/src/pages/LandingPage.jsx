@@ -27,6 +27,8 @@ import {
   Zap,
   Clock,
   BarChart3,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import {
   HeroMedicalIllustration,
@@ -173,7 +175,7 @@ function AnimatedCounter({ target, suffix = '', duration = 2.2 }) {
    navbar
    ───────────────────────────────────────────── */
 
-function Navbar() {
+function Navbar({ darkMode, setDarkMode }) {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -197,8 +199,10 @@ function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-10">
         <Link to="/" className="flex items-center gap-2.5">
           <img src="/favicon.svg" alt="" className="h-7 w-7" />
-          <span className="text-[15px] font-bold tracking-tight text-[#1d2d50]">
-            GP-Script<span className="text-[#3a7bd5]">Pro</span>
+          <span className="text-[15px] font-bold tracking-tight">
+            <span className="text-black">JustGP</span>
+            <span className="text-black">-</span>
+            <span className="text-[#3A7BD5]">Rx</span>
           </span>
         </Link>
 
@@ -208,15 +212,33 @@ function Navbar() {
               className="text-[13px] font-medium text-slate-500 transition-colors duration-300 hover:text-[#1d2d50]">{t}</a>
           ))}
           <Link to="/login" className="text-[13px] font-medium text-slate-500 transition-colors hover:text-[#1d2d50]">Login</Link>
+          <button
+            type="button"
+            onClick={() => setDarkMode((d) => !d)}
+            className="rounded-full border border-slate-300 bg-white/80 p-2 text-slate-600 transition hover:bg-white hover:text-slate-900"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <Link to="/signup"
             className="rounded-full bg-[#1d2d50] px-5 py-2 text-[13px] font-semibold text-white transition-all duration-300 hover:bg-[#2a3f6e] hover:shadow-[0_8px_30px_rgba(29,45,80,0.18)]">
             Get Started
           </Link>
         </div>
 
-        <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-lg p-2 text-slate-600 md:hidden">
-          {menuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        <div className="flex items-center gap-1.5 md:hidden">
+          <button
+            type="button"
+            onClick={() => setDarkMode((d) => !d)}
+            className="rounded-full border border-slate-300 bg-white/80 p-2 text-slate-600 transition hover:bg-white hover:text-slate-900"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-lg p-2 text-slate-600">
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -755,10 +777,22 @@ function ImageRibbon() {
    ───────────────────────────────────────────── */
 
 export default function LandingPage() {
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [darkMode])
+
   return (
     <div className="overflow-x-hidden">
       <CursorBlob />
-      <Navbar />
+      <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
       <Hero />
       <StorySection />
       <Features />

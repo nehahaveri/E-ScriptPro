@@ -1804,7 +1804,7 @@ function Dashboard() {
                       className={`flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition ${
                         active
                           ? 'bg-[#2d7da8] text-white shadow-md'
-                          : 'bg-white/60 text-slate-500 hover:bg-white hover:text-slate-700'
+                          : 'bg-white/60 text-black hover:bg-white hover:text-black'
                       }`}
                     >
                       <section.Icon className="h-4 w-4" />
@@ -1821,13 +1821,13 @@ function Dashboard() {
                       }`}
                     >
                       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                        active ? 'bg-[#2d7da8] text-white shadow-sm' : 'bg-white/80 text-slate-500'
+                        active ? 'bg-[#2d7da8] text-white shadow-sm' : 'bg-white/80 text-black'
                       }`}>
                         <section.Icon className="h-3.5 w-3.5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs font-semibold text-[#20304f]">{section.title}</span>
-                        <span className="block truncate text-[10px] text-slate-400">{section.description}</span>
+                        <span className="block truncate text-xs font-semibold text-black">{section.title}</span>
+                        <span className="block truncate text-[10px] text-black/70">{section.description}</span>
                       </span>
                     </button>
                   )
@@ -1849,8 +1849,8 @@ function Dashboard() {
                     onClick={() => selectService(section.key)}
                     className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
                       active
-                        ? 'border-white/70 bg-white/70 text-cyan-800'
-                        : 'border-white/60 bg-white/40 text-slate-500'
+                        ? 'border-white/70 bg-white/70 text-black'
+                        : 'border-white/60 bg-white/40 text-black'
                     }`}
                   >
                     <section.Icon className="h-3 w-3" />

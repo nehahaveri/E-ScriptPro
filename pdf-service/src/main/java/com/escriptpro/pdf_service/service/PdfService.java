@@ -15,6 +15,7 @@ import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
 import com.lowagie.text.Image;
+import com.lowagie.text.Chunk;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.Rectangle;
@@ -142,7 +143,9 @@ public class PdfService {
         if (logo != null) {
             logoCell.addElement(logo);
         } else {
-            Paragraph cross = new Paragraph(DEFAULT_LOGO_SYMBOL, DEFAULT_LOGO_FONT);
+            Chunk crossChunk = new Chunk(DEFAULT_LOGO_SYMBOL, DEFAULT_LOGO_FONT);
+            crossChunk.setTextRise(2f);
+            Paragraph cross = new Paragraph(crossChunk);
             cross.setAlignment(Element.ALIGN_CENTER);
             logoCell.addElement(cross);
         }
