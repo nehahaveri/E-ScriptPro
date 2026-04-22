@@ -111,7 +111,7 @@ function Signup() {
         {/* Branding panel — visible on md+ */}
         <div className="hidden w-[44%] flex-col justify-between bg-gradient-to-br from-[#0b5fd7]/90 to-[#00d2ff]/70 p-10 md:flex">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80">E-ScriptPro</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80">JustGP-Rx</p>
             <h2 className="mt-3 text-2xl font-bold leading-tight text-white">Start Your<br />Digital Practice.</h2>
             <p className="mt-4 text-sm leading-6 text-white/75">Create your account and begin managing patients and prescriptions digitally.</p>
           </div>
