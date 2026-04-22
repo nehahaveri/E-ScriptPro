@@ -54,8 +54,8 @@ public class PdfService {
     private static final Font TABLE_BODY = new Font(Font.HELVETICA, 6, Font.NORMAL, DARK_GREY);
     private static final Font TABLE_BODY_BOLD = new Font(Font.HELVETICA, 6, Font.BOLD, DARK_GREY);
     private static final Font TICK_FONT = new Font(Font.ZAPFDINGBATS, 7.8f, Font.NORMAL, DARK_GREY);
-    private static final String DEFAULT_LOGO_SYMBOL = "\u271A";
-    private static final Font DEFAULT_LOGO_FONT = new Font(Font.HELVETICA, 22, Font.BOLD, java.awt.Color.BLACK);
+    private static final String DEFAULT_LOGO_SYMBOL = "+";
+    private static final Font DEFAULT_LOGO_FONT = new Font(Font.HELVETICA, 24, Font.BOLD, java.awt.Color.BLACK);
     private static final String TICK_MARKER = "__TICK__";
     private static final String CROSS_MARKER = "__CROSS__";
 

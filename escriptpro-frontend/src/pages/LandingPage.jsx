@@ -660,9 +660,21 @@ function Footer() {
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 sm:flex-row lg:px-10">
         <div className="flex items-center gap-2">
           <img src="/favicon.svg" alt="" className="h-5 w-5 opacity-60" />
-          <span className="text-[13px] font-semibold text-slate-400">GP-Script<span className="text-slate-500">Pro</span></span>
+          <span className="text-[13px] font-semibold">
+            <span className="text-black">JustGP</span>
+            <span className="text-black">-</span>
+            <span className="text-[#3A7BD5]">Rx</span>
+          </span>
         </div>
-        <p className="text-[11px] text-slate-400">© {new Date().getFullYear()} JustGP-Rx. All rights reserved.</p>
+        <p className="text-[11px] text-slate-400">
+          © {new Date().getFullYear()}{' '}
+          <span className="font-semibold">
+            <span className="text-black">JustGP</span>
+            <span className="text-black">-</span>
+            <span className="text-[#3A7BD5]">Rx</span>
+          </span>
+          . All rights reserved.
+        </p>
         <div className="flex items-center gap-8">
           <a href="#features" className="text-[12px] text-slate-400 transition hover:text-slate-600">Features</a>
           <a href="#story" className="text-[12px] text-slate-400 transition hover:text-slate-600">Story</a>
