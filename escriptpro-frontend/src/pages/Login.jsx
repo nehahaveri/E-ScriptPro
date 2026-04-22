@@ -135,7 +135,11 @@ function Login() {
         {/* Branding panel — visible on md+ */}
         <div className="hidden w-[44%] flex-col justify-between bg-gradient-to-br from-[#0b5fd7]/90 to-[#00d2ff]/70 p-10 md:flex">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80">JustGP-Rx</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em]">
+              <span className="text-black">JustGP</span>
+              <span className="text-black">-</span>
+              <span className="text-[#3A7BD5]">Rx</span>
+            </p>
             <h2 className="mt-3 text-2xl font-bold leading-tight text-white">Digital Prescriptions,<br />Simplified.</h2>
             <p className="mt-4 text-sm leading-6 text-white/75">Manage patients, generate prescriptions, and streamline your practice — all in one place.</p>
           </div>
@@ -199,7 +203,7 @@ function Login() {
                   onChange={(event) => setIdentifier(event.target.value)}
                   required
                   className="input-luxe pl-10 text-sm"
-                  placeholder="doctor@example.com or 9876543210"
+                  placeholder={`${selectedRole === 'RECEPTIONIST' ? 'receptionist@example.com' : 'doctor@example.com'} or 9876543210`}
                 />
               </div>
 

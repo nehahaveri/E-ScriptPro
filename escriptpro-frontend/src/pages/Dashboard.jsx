@@ -1291,27 +1291,25 @@ function Dashboard() {
     resetMedicineBuilder(type)
   }
 
-  const addMedicine = () => {
-    setError('')
-
-    if (!hasMedicineValue(selectedMedicineType, medicineDraft)) {
-      setError('Enter a medicine name before adding.')
-      return
-    }
-
-    if (medicineDraft.scheduleType === 'WEEKLY' && medicineDraft.weeklyDays.length === 0) {
-      setError(`Select at least one day for a weekly ${selectedMedicineType.toLowerCase()}.`)
-      return
-    }
-    upsertMedicine(selectedMedicineType, medicineDraft)
-  }
-
   const handleFoodInstructionSelect = (instruction) => {
-    updateMedicineDraft('instruction', instruction)
+    if (!hasMedicineValue(selectedMedicineType, medicineDraft)) {
+      updateMedicineDraft('instruction', instruction)
+      return
+    }
+    upsertMedicine(selectedMedicineType, { ...medicineDraft, instruction })
   }
 
   const handleInjectionScheduleAndAdd = (scheduleType) => {
     updateMedicineSchedule(scheduleType)
+    if (!hasMedicineValue('INJECTION', medicineDraft)) return
+    const finalDraft = {
+      ...medicineDraft,
+      scheduleType,
+      daily: scheduleType === 'DAILY',
+      weeklyOnce: scheduleType === 'WEEKLY',
+      alternateDay: scheduleType === 'ALTERNATE_DAY',
+    }
+    upsertMedicine('INJECTION', finalDraft)
   }
 
   const uploadXray = async (file) => {
@@ -1353,7 +1351,7 @@ function Dashboard() {
     const brandSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-brand`
     const nameSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-name`
     const combinedSuggestionKey = `${selectedMedicineType.toLowerCase()}-draft-combined`
-    const medicineCounts = {
+  const medicineCounts = {
     TABLET: tablets.filter((item) => hasMedicineValue('TABLET', item)).length,
     CAPSULE: capsules.filter((item) => hasMedicineValue('CAPSULE', item)).length,
     SYRUP: syrups.filter((item) => hasMedicineValue('SYRUP', item)).length,
@@ -1363,7 +1361,19 @@ function Dashboard() {
     OINTMENT: ointments.filter((item) => hasMedicineValue('OINTMENT', item)).length,
     GEL: gels.filter((item) => hasMedicineValue('GEL', item)).length,
     SUSPENSION: suspensions.filter((item) => hasMedicineValue('SUSPENSION', item)).length,
-    }
+  }
+
+  const visibleMedicineSections = [
+    { key: 'TABLET', title: 'Tablets', items: tablets },
+    { key: 'CAPSULE', title: 'Capsules', items: capsules },
+    { key: 'SYRUP', title: 'Syrups', items: syrups },
+    { key: 'INJECTION', title: 'Injections', items: injections },
+    { key: 'LOTION', title: 'Lotions', items: lotions },
+    { key: 'CREAM', title: 'Creams', items: creams },
+    { key: 'OINTMENT', title: 'Ointments', items: ointments },
+    { key: 'GEL', title: 'Gels', items: gels },
+    { key: 'SUSPENSION', title: 'Suspensions', items: suspensions },
+  ].filter((section) => section.items.length > 0)
 
     const submitPrescription = async (event) => {
     event.preventDefault()
@@ -1599,7 +1609,11 @@ function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">JustGP-Rx</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em]">
+                <span className="text-black">JustGP</span>
+                <span className="text-black">-</span>
+                <span className="text-[#3A7BD5]">Rx</span>
+              </p>
               <button onClick={() => setMobileMenuOpen(false)} className="rounded-full p-1.5 text-slate-400 hover:text-slate-600">
                 <X className="h-4 w-4" />
               </button>
@@ -1664,7 +1678,11 @@ function Dashboard() {
             <Menu className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3A7BD5]">JustGP-Rx</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em]">
+              <span className="text-black">JustGP</span>
+              <span className="text-black">-</span>
+              <span className="text-[#3A7BD5]">Rx</span>
+            </p>
             <h1 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
               {isReceptionist ? 'Receptionist Dashboard' : 'Dashboard'}
             </h1>
@@ -2934,8 +2952,8 @@ function Dashboard() {
                           </div>
                         </div>
                       )}
-                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 pt-3">
-                        {editingMedicine && (
+                      {editingMedicine && (
+                        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 pt-3">
                           <button
                             type="button"
                             onClick={() => resetMedicineBuilder(selectedMedicineType)}
@@ -2943,91 +2961,25 @@ function Dashboard() {
                           >
                             Cancel Edit
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={addMedicine}
-                          className="button-glass min-h-0 px-3 py-1.5 text-xs"
-                        >
-                          {editingMedicine ? 'Update Medicine' : 'Add Medicine'}
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-                      <MedicineList
-                        title="Tablets"
-                        items={tablets}
-                        type="TABLET"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('TABLET', index)}
-                        onRemove={(index) => removeMedicine('TABLET', index)}
-                      />
-                      <MedicineList
-                        title="Capsules"
-                        items={capsules}
-                        type="CAPSULE"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('CAPSULE', index)}
-                        onRemove={(index) => removeMedicine('CAPSULE', index)}
-                      />
-                      <MedicineList
-                        title="Syrups"
-                        items={syrups}
-                        type="SYRUP"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('SYRUP', index)}
-                        onRemove={(index) => removeMedicine('SYRUP', index)}
-                      />
-                      <MedicineList
-                        title="Injections"
-                        items={injections}
-                        type="INJECTION"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('INJECTION', index)}
-                        onRemove={(index) => removeMedicine('INJECTION', index)}
-                      />
-                      <MedicineList
-                        title="Lotions"
-                        items={lotions}
-                        type="LOTION"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('LOTION', index)}
-                        onRemove={(index) => removeMedicine('LOTION', index)}
-                      />
-                      <MedicineList
-                        title="Creams"
-                        items={creams}
-                        type="CREAM"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('CREAM', index)}
-                        onRemove={(index) => removeMedicine('CREAM', index)}
-                      />
-                      <MedicineList
-                        title="Ointments"
-                        items={ointments}
-                        type="OINTMENT"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('OINTMENT', index)}
-                        onRemove={(index) => removeMedicine('OINTMENT', index)}
-                      />
-                      <MedicineList
-                        title="Gels"
-                        items={gels}
-                        type="GEL"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('GEL', index)}
-                        onRemove={(index) => removeMedicine('GEL', index)}
-                      />
-                      <MedicineList
-                        title="Suspensions"
-                        items={suspensions}
-                        type="SUSPENSION"
-                        editingMedicine={editingMedicine}
-                        onEdit={(index) => editMedicine('SUSPENSION', index)}
-                        onRemove={(index) => removeMedicine('SUSPENSION', index)}
-                      />
-                    </div>
+                    {visibleMedicineSections.length > 0 && (
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {visibleMedicineSections.map((section) => (
+                          <MedicineList
+                            key={section.key}
+                            title={section.title}
+                            items={section.items}
+                            type={section.key}
+                            editingMedicine={editingMedicine}
+                            onEdit={(index) => editMedicine(section.key, index)}
+                            onRemove={(index) => removeMedicine(section.key, index)}
+                          />
+                        ))}
+                      </div>
+                    )}
 
                     <div className="glass-well section-chroma-soft space-y-3 p-4">
                       <label className="flex flex-col gap-1 lg:max-w-[300px]">
@@ -3084,13 +3036,19 @@ function Dashboard() {
 }
 
 function MedicineList({ title, items, type, onEdit, onRemove, editingMedicine }) {
+  const getMedicineDetails = (item) => {
+    const summary = summarizeMedicine(type, item)
+    const name = (item.name || '').trim()
+    if (!name) return summary
+    return summary.startsWith(name) ? summary.slice(name.length).replace(/^\s*\|\s*/, '') : summary
+  }
+
   return (
     <div className="glass-well space-y-2 p-3">
       <h3 className="text-sm font-medium text-slate-900">{title}</h3>
-      {items.length === 0 && <p className="text-xs text-slate-500">No medicines added.</p>}
       {items.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-white/60 bg-white/65">
-          <div className="grid grid-cols-[44px,minmax(0,1fr),auto] gap-2 border-b border-white/80 bg-white/70 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+        <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white/80 shadow-sm">
+          <div className="grid grid-cols-[48px,minmax(0,1fr),132px] gap-3 border-b border-slate-200 bg-slate-50/85 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
             <span>No.</span>
             <span>Medicine</span>
             <span>Actions</span>
@@ -3098,30 +3056,36 @@ function MedicineList({ title, items, type, onEdit, onRemove, editingMedicine })
           {items.map((item, index) => (
             <div
               key={`${title}-${index}`}
-              className={`grid grid-cols-[44px,minmax(0,1fr),auto] gap-2 border-b border-white/70 px-2 py-2 last:border-b-0 ${
-                editingMedicine?.type === type && editingMedicine?.index === index ? 'bg-cyan-50/70' : 'bg-white/35'
+              className={`border-b border-slate-200 px-3 py-2.5 last:border-b-0 ${
+                editingMedicine?.type === type && editingMedicine?.index === index ? 'bg-cyan-50/70' : 'bg-white/60'
               }`}
             >
-              <span className="text-xs font-semibold text-slate-700">{index + 1}</span>
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-slate-800">{item.name || 'Unnamed medicine'}</p>
-                <p className="text-[11px] text-slate-600">{summarizeMedicine(type, item)}</p>
+              <div className="grid grid-cols-[48px,minmax(0,1fr),132px] gap-3">
+                <span className="pt-0.5 text-xs font-semibold text-slate-700">{index + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-900">{item.name || 'Unnamed medicine'}</p>
+                </div>
+                <div className="flex items-start justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(index)}
+                    className="button-glass-secondary min-h-0 rounded-md px-2 py-1 text-[11px]"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(index)}
+                    className="button-glass-danger min-h-0 rounded-md px-2 py-1 text-[11px]"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
-              <div className="flex items-start gap-1">
-                <button
-                  type="button"
-                  onClick={() => onEdit(index)}
-                  className="button-glass-secondary min-h-0 rounded-md px-2 py-1 text-[11px]"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemove(index)}
-                  className="button-glass-danger min-h-0 rounded-md px-2 py-1 text-[11px]"
-                >
-                  Remove
-                </button>
+              <div className="mt-1.5 grid grid-cols-[48px,minmax(0,1fr),132px] gap-3 border-t border-slate-200/80 pt-1.5">
+                <span />
+                <p className="text-[11px] leading-5 text-slate-600">{getMedicineDetails(item)}</p>
+                <span />
               </div>
             </div>
           ))}
