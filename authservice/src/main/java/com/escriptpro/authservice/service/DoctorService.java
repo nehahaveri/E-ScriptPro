@@ -4,8 +4,10 @@ import com.escriptpro.authservice.client.DoctorClient;
 import com.escriptpro.authservice.client.ReceptionistClient;
 import com.escriptpro.authservice.dto.AuthResponseDTO;
 import com.escriptpro.authservice.dto.DoctorAuthProfileDTO;
-import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
-import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginResponseDTO;
 import com.escriptpro.authservice.dto.ReceptionistProfileDTO;
@@ -17,16 +19,14 @@ import com.escriptpro.authservice.entity.Role;
 import com.escriptpro.authservice.mfa.MfaProperties;
 import com.escriptpro.authservice.repository.AuthUserRepository;
 import com.escriptpro.authservice.validation.PhoneNumberValidator;
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.Collections;
 import com.escriptpro.authservice.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -44,6 +44,8 @@ public class DoctorService {
     private final EmailService emailService;
     private final OtpService otpService;
     private final MfaProperties mfaProperties;
+    @Value("${google.client.id}")
+    private String googleClientId;
 
     public DoctorService(
             AuthUserRepository authUserRepository,
@@ -196,6 +198,35 @@ public class DoctorService {
                 null,
                 null
         );
+    }
+
+    @Transactional
+    public LoginResponseDTO googleLogin(GoogleLoginRequestDTO googleLoginRequestDTO) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(googleLoginRequestDTO.idToken());
+            if (idToken == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+
+            AuthUser authUser = authUserRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "No account found with this Google email. Please sign up first."));
+
+            Long resolvedDoctorId = resolveDoctorIdForLogin(authUser, new ResolvedLoginContext(email, null, null));
+
+            String token = issueAccessToken(authUser, resolvedDoctorId);
+            return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
+        } catch (Exception e) {
+            log.error("Google login failed", e);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google login failed");
+        }
     }
 
     @Transactional
