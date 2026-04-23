@@ -62,6 +62,9 @@ public class GoogleCalendarOAuthService {
     @Value("${google.calendar.default-post-connect-redirect:http://localhost:5173/dashboard?googleCalendar=connected}")
     private String defaultPostConnectRedirect;
 
+    @Value("${services.doctor-service.url:http://localhost:8086}")
+    private String doctorServiceUrl;
+
     public GoogleCalendarOAuthService(
             GoogleCalendarConnectionRepository connectionRepository,
             GoogleCalendarOAuthStateRepository stateRepository,
@@ -385,7 +388,7 @@ public class GoogleCalendarOAuthService {
         headers.setBearerAuth(token);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         ResponseEntity<DoctorResponseDTO> response = restTemplate.exchange(
-                "http://localhost:8086/doctors/email/{email}",
+                doctorServiceUrl + "/doctors/email/{email}",
                 HttpMethod.GET,
                 entity,
                 DoctorResponseDTO.class,

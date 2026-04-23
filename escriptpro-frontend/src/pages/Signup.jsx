@@ -15,7 +15,9 @@ function Signup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
   useEffect(() => {
     if (darkMode) {
@@ -26,6 +28,98 @@ function Signup() {
       localStorage.setItem('theme', 'light')
     }
   }, [darkMode])
+
+  useEffect(() => {
+    if (selectedRole !== 'DOCTOR' || !googleClientId) {
+      return undefined
+    }
+
+    const handleGoogleDoctorSignup = async (response) => {
+      const trimmedName = name.trim()
+      const trimmedPhone = phone.trim()
+      if (!trimmedName) {
+        setError('Name is required for Google signup.')
+        return
+      }
+      if (!trimmedPhone) {
+        setError('Phone number is required for Google signup.')
+        return
+      }
+      if (!password || password.length < 12) {
+        setError('Password must be at least 12 characters for Google signup.')
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Password and confirm password must match.')
+        return
+      }
+
+      setGoogleLoading(true)
+      setError('')
+      try {
+        const signupResponse = await api.post('/auth/google-signup/doctor', {
+          idToken: response.credential,
+          name: trimmedName,
+          phone: trimmedPhone,
+          password,
+        })
+
+        const token = signupResponse.data?.token
+        const resolvedRole = (signupResponse.data?.role || 'DOCTOR').toUpperCase()
+        const resolvedDoctorId = signupResponse.data?.doctorId
+
+        if (!token) {
+          setError('Signup completed, but auto-login failed. Please login manually.')
+          navigate('/')
+          return
+        }
+
+        localStorage.setItem('token', token)
+        localStorage.setItem('role', resolvedRole)
+        if (resolvedDoctorId !== null && resolvedDoctorId !== undefined) {
+          localStorage.setItem('doctorId', String(resolvedDoctorId))
+        } else {
+          localStorage.removeItem('doctorId')
+        }
+        navigate('/dashboard')
+      } catch (err) {
+        const message =
+          err.response?.data?.message ||
+          (typeof err.response?.data === 'string' ? err.response.data : null) ||
+          'Google signup failed. Please try again.'
+        setError(message)
+      } finally {
+        setGoogleLoading(false)
+      }
+    }
+
+    const initializeGoogleSignUp = () => {
+      if (!window.google || !window.google.accounts?.id) {
+        return
+      }
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleDoctorSignup,
+      })
+      const target = document.getElementById('google-signup-button')
+      if (target) {
+        target.innerHTML = ''
+        window.google.accounts.id.renderButton(target, {
+          theme: 'outline',
+          size: 'large',
+          text: 'signup_with',
+        })
+      }
+    }
+
+    if (window.google) {
+      initializeGoogleSignUp()
+      return undefined
+    }
+
+    window.addEventListener('load', initializeGoogleSignUp)
+    return () => window.removeEventListener('load', initializeGoogleSignUp)
+  }, [selectedRole, googleClientId, name, phone, password, confirmPassword, navigate])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -279,12 +373,34 @@ function Signup() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || googleLoading}
             className="button-primary w-full text-sm"
           >
-            {loading ? 'Creating account...' : selectedRole === 'RECEPTIONIST' ? 'Create receptionist account' : 'Sign up'}
-            {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
+            {loading || googleLoading
+              ? 'Creating account...'
+              : selectedRole === 'RECEPTIONIST'
+                ? 'Create receptionist account'
+                : 'Sign up'}
+            {!loading && !googleLoading && <ArrowRight className="ml-2 h-4 w-4" />}
           </button>
+
+          {selectedRole === 'DOCTOR' && (
+            <div className="mt-1">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-white/15" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-transparent px-2 text-white/60">Or continue with</span>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-center">
+                {googleClientId
+                  ? <div id="google-signup-button"></div>
+                  : <p className="text-xs text-white/65">Google signup unavailable. Set `VITE_GOOGLE_CLIENT_ID`.</p>}
+              </div>
+            </div>
+          )}
         </form>
 
         <p className="mt-4 text-center text-xs text-white/72">

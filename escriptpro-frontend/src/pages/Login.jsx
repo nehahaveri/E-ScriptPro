@@ -18,6 +18,7 @@ function Login() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
   useEffect(() => {
     if (darkMode) {
@@ -30,16 +31,21 @@ function Login() {
   }, [darkMode])
 
   useEffect(() => {
+    if (!googleClientId) {
+      return undefined
+    }
+
     const initializeGoogleSignIn = () => {
       if (window.google && window.google.accounts) {
         window.google.accounts.id.initialize({
-          client_id: 'YOUR_GOOGLE_CLIENT_ID', // Replace with actual client ID
+          client_id: googleClientId,
           callback: handleGoogleSignIn,
         })
-        window.google.accounts.id.renderButton(
-          document.getElementById('google-signin-button'),
-          { theme: 'outline', size: 'large' }
-        )
+        const target = document.getElementById('google-signin-button')
+        if (target) {
+          target.innerHTML = ''
+          window.google.accounts.id.renderButton(target, { theme: 'outline', size: 'large' })
+        }
       }
     }
 
@@ -47,8 +53,11 @@ function Login() {
       initializeGoogleSignIn()
     } else {
       window.addEventListener('load', initializeGoogleSignIn)
+      return () => window.removeEventListener('load', initializeGoogleSignIn)
     }
-  }, [])
+
+    return undefined
+  }, [googleClientId])
 
   const handleGoogleSignIn = async (response) => {
     setGoogleLoading(true)
@@ -344,7 +353,9 @@ function Login() {
             </div>
           </div>
           <div className="mt-4 flex justify-center">
-            <div id="google-signin-button"></div>
+            {googleClientId
+              ? <div id="google-signin-button"></div>
+              : <p className="text-xs text-white/65">Google sign-in unavailable. Set `VITE_GOOGLE_CLIENT_ID`.</p>}
           </div>
         </div>
 

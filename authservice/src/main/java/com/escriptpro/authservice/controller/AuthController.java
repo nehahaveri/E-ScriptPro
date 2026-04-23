@@ -3,6 +3,7 @@ package com.escriptpro.authservice.controller;
 import com.escriptpro.authservice.dto.AuthResponseDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
+import com.escriptpro.authservice.dto.GoogleDoctorSignupRequestDTO;
 import com.escriptpro.authservice.dto.GoogleLoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginResponseDTO;
@@ -39,6 +40,11 @@ public class AuthController {
     @PostMapping("/google-login")
     public LoginResponseDTO googleLogin(@Valid @RequestBody GoogleLoginRequestDTO googleLoginRequestDTO) {
         return doctorService.googleLogin(googleLoginRequestDTO);
+    }
+
+    @PostMapping("/google-signup/doctor")
+    public AuthResponseDTO googleDoctorSignup(@Valid @RequestBody GoogleDoctorSignupRequestDTO requestDTO) {
+        return doctorService.googleDoctorSignup(requestDTO);
     }
 
     @PostMapping("/verify-otp")

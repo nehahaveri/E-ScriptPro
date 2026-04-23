@@ -26,6 +26,12 @@ spring:
                 - Path=/api/patients/**
               filters:
                 - StripPrefix=1
+            - id: patient-calendar-service
+              uri: http://patient-service:8082
+              predicates:
+                - Path=/api/calendar/**
+              filters:
+                - StripPrefix=1
             - id: prescription-service
               uri: http://prescription-service:8083
               predicates:

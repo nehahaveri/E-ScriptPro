@@ -32,6 +32,8 @@ public class SecurityConfig {
                                 "/health",
                                 "/auth/signup",
                                 "/auth/login",
+                                "/auth/google-login",
+                                "/auth/google-signup/doctor",
                                 "/auth/verify-otp",
                                 "/auth/forgot-password",
                                 "/auth/reset-password"

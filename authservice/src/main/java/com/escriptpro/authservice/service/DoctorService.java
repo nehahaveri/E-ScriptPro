@@ -10,6 +10,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
 import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
+import com.escriptpro.authservice.dto.GoogleDoctorSignupRequestDTO;
 import com.escriptpro.authservice.dto.GoogleLoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginResponseDTO;
@@ -22,6 +23,7 @@ import com.escriptpro.authservice.entity.Role;
 import com.escriptpro.authservice.mfa.MfaProperties;
 import com.escriptpro.authservice.repository.AuthUserRepository;
 import com.escriptpro.authservice.validation.PhoneNumberValidator;
+import jakarta.annotation.PostConstruct;
 import java.util.Collections;
 import com.escriptpro.authservice.util.JwtUtil;
 import org.slf4j.Logger;
@@ -51,8 +53,10 @@ public class DoctorService {
     private final EmailService emailService;
     private final OtpService otpService;
     private final MfaProperties mfaProperties;
-    @Value("${google.client.id}")
+    @Value("${google.client.id:}")
     private String googleClientId;
+    @Value("${google.login.enabled:true}")
+    private boolean googleLoginEnabled;
 
     public DoctorService(
             AuthUserRepository authUserRepository,
@@ -71,6 +75,15 @@ public class DoctorService {
         this.emailService = emailService;
         this.otpService = otpService;
         this.mfaProperties = mfaProperties;
+    }
+
+    @PostConstruct
+    void validateGoogleOAuthConfiguration() {
+        if (googleLoginEnabled && !isGoogleClientIdConfigured()) {
+            throw new IllegalStateException(
+                    "Google login is enabled but google.client.id is not configured. Set GOOGLE_CLIENT_ID or disable GOOGLE_LOGIN_ENABLED."
+            );
+        }
     }
 
     @Transactional
@@ -209,19 +222,15 @@ public class DoctorService {
 
     @Transactional
     public LoginResponseDTO googleLogin(GoogleLoginRequestDTO googleLoginRequestDTO) {
+        if (!googleLoginEnabled) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Google login is disabled");
+        }
+        if (!isGoogleClientIdConfigured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Google login is not configured");
+        }
         try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
-
-            GoogleIdToken idToken = verifier.verify(googleLoginRequestDTO.idToken());
-            if (idToken == null) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
-            }
-
-            GoogleIdToken.Payload payload = idToken.getPayload();
+            GoogleIdToken.Payload payload = verifyGooglePayload(googleLoginRequestDTO.idToken());
             String email = payload.getEmail();
-            String name = (String) payload.get("name");
 
             AuthUser authUser = authUserRepository.findByEmail(email)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "No account found with this Google email. Please sign up first."));
@@ -230,9 +239,113 @@ public class DoctorService {
 
             String token = issueAccessToken(authUser, resolvedDoctorId);
             return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Google login failed", e);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google login failed");
+        }
+    }
+
+    @Transactional
+    public AuthResponseDTO googleDoctorSignup(GoogleDoctorSignupRequestDTO requestDTO) {
+        if (!googleLoginEnabled) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Google login is disabled");
+        }
+        if (!isGoogleClientIdConfigured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Google login is not configured");
+        }
+        try {
+            GoogleIdToken.Payload payload = verifyGooglePayload(requestDTO.idToken());
+            String normalizedEmail = payload.getEmail().toLowerCase();
+
+            if (authUserRepository.findByEmail(normalizedEmail).isPresent()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Account with this email already exists");
+            }
+
+            String normalizedPhone = normalizePhone(requireValue(requestDTO.phone(), "Phone number is required"));
+            String displayName = requestDTO.name();
+            if (displayName == null || displayName.isBlank()) {
+                Object googleName = payload.get("name");
+                displayName = googleName == null ? null : String.valueOf(googleName);
+            }
+            displayName = requireValue(displayName, "Name is required");
+
+            AuthUser authUser = new AuthUser();
+            authUser.setEmail(normalizedEmail);
+            authUser.setPassword(passwordEncoder.encode(requireValue(requestDTO.password(), "Password is required")));
+            authUser.setRole(Role.DOCTOR);
+            authUserRepository.save(authUser);
+
+            DoctorAuthProfileDTO doctorProfile;
+            try {
+                String serviceToken = jwtUtil.generateServiceToken(normalizedEmail);
+                doctorProfile = doctorClient.createDoctorProfile(
+                        normalizedEmail,
+                        displayName,
+                        normalizedPhone,
+                        serviceToken
+                );
+                authUser.setDoctorId(doctorProfile.getId());
+                authUserRepository.save(authUser);
+            } catch (HttpStatusCodeException e) {
+                log.error("Doctor-service profile creation failed for Google signup email: {}.", normalizedEmail, e);
+                throw new ResponseStatusException(
+                        HttpStatus.valueOf(e.getStatusCode().value()),
+                        extractDownstreamMessage(e.getResponseBodyAsString(), "Account creation failed. Please try again.")
+                );
+            } catch (Exception e) {
+                log.error("Doctor-service profile creation failed for Google signup email: {}.", normalizedEmail, e);
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Account creation failed. Please try again."
+                );
+            }
+
+            String token = issueAccessToken(authUser, doctorProfile.getId());
+            return new AuthResponseDTO(
+                    "Doctor registered successfully",
+                    token,
+                    doctorProfile.getId(),
+                    effectiveRole(authUser)
+            );
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Google doctor signup failed", e);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google signup failed");
+        }
+    }
+
+    private boolean isGoogleClientIdConfigured() {
+        return googleClientId != null
+                && !googleClientId.isBlank()
+                && !"YOUR_GOOGLE_CLIENT_ID".equals(googleClientId);
+    }
+
+    private GoogleIdToken.Payload verifyGooglePayload(String idTokenValue) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenValue);
+            if (idToken == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google email is not verified");
+            }
+            if (payload.getEmail() == null || payload.getEmail().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google token did not include an email");
+            }
+            return payload;
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
         }
     }
 
