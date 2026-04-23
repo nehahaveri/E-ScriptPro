@@ -226,7 +226,7 @@ public class DoctorService {
             AuthUser authUser = authUserRepository.findByEmail(email)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "No account found with this Google email. Please sign up first."));
 
-            Long resolvedDoctorId = resolveDoctorIdForLogin(authUser, new ResolvedLoginContext(email, null, null));
+            Long resolvedDoctorId = resolveDoctorIdForLogin(authUser, new ResolvedLoginContext(email, authUser.getRole(), authUser.getDoctorId(), null));
 
             String token = issueAccessToken(authUser, resolvedDoctorId);
             return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
