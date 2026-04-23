@@ -14,8 +14,7 @@ function Login() {
   const [mfaPending, setMfaPending] = useState(false)
   const [rememberMe, setRememberMe] = useState(Boolean(savedLoginPrefs.rememberMe))
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
 
   useEffect(() => {
@@ -27,6 +26,43 @@ function Login() {
       localStorage.setItem('theme', 'light')
     }
   }, [darkMode])
+
+  useEffect(() => {
+    const initializeGoogleSignIn = () => {
+      if (window.google && window.google.accounts) {
+        window.google.accounts.id.initialize({
+          client_id: 'YOUR_GOOGLE_CLIENT_ID', // Replace with actual client ID
+          callback: handleGoogleSignIn,
+        })
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-button'),
+          { theme: 'outline', size: 'large' }
+        )
+      }
+    }
+
+    if (window.google) {
+      initializeGoogleSignIn()
+    } else {
+      window.addEventListener('load', initializeGoogleSignIn)
+    }
+  }, [])
+
+  const handleGoogleSignIn = async (response) => {
+    setGoogleLoading(true)
+    setError('')
+    try {
+      const res = await api.post('/auth/google-login', {
+        idToken: response.credential,
+      })
+      finalizeLogin(res.data?.token, res.data?.email || 'google-user', res.data?.role, res.data?.doctorId)
+    } catch (err) {
+      const message = err.response?.data?.message || 'Google login failed.'
+      setError(message)
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
 
   const persistLoginPreference = (loginIdentifier) => {
     if (rememberMe) {
@@ -295,6 +331,20 @@ function Login() {
             {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </button>
         </form>
+
+        <div className="mt-4">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-white/15" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-transparent px-2 text-white/60">Or continue with</span>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-center">
+            <div id="google-signin-button"></div>
+          </div>
+        </div>
 
         <p className="mt-4 text-center text-xs text-white/72">
           New doctor?{' '}
