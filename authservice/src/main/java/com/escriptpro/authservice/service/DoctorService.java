@@ -8,6 +8,9 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
+import com.escriptpro.authservice.dto.ForgotPasswordRequestDTO;
+import com.escriptpro.authservice.dto.ForgotPasswordResponseDTO;
+import com.escriptpro.authservice.dto.GoogleLoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginRequestDTO;
 import com.escriptpro.authservice.dto.LoginResponseDTO;
 import com.escriptpro.authservice.dto.ReceptionistProfileDTO;
@@ -26,8 +29,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class DoctorService {
