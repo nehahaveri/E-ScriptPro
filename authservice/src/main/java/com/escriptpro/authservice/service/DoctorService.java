@@ -35,6 +35,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.Locale;
 
 @Service
 public class DoctorService {
@@ -220,16 +221,18 @@ public class DoctorService {
             }
 
             GoogleIdToken.Payload payload = idToken.getPayload();
-            String email = payload.getEmail();
-            String name = (String) payload.get("name");
+            String email = requireValue(payload.getEmail(), "Google account email is required").toLowerCase(Locale.ROOT);
+            String name = normalizeGoogleDisplayName((String) payload.get("name"), email);
 
             AuthUser authUser = authUserRepository.findByEmail(email)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "No account found with this Google email. Please sign up first."));
+                    .orElseGet(() -> registerGoogleDoctor(email, name));
 
             Long resolvedDoctorId = resolveDoctorIdForLogin(authUser, new ResolvedLoginContext(email, authUser.getRole(), authUser.getDoctorId(), null));
 
             String token = issueAccessToken(authUser, resolvedDoctorId);
             return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
+        } catch (ResponseStatusException ex) {
+            throw ex;
         } catch (Exception e) {
             log.error("Google login failed", e);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google login failed");
@@ -542,6 +545,73 @@ public class DoctorService {
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned doctor does not exist");
         }
+    }
+
+    private AuthUser registerGoogleDoctor(String normalizedEmail, String normalizedName) {
+        AuthUser authUser = new AuthUser();
+        authUser.setEmail(normalizedEmail);
+        authUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        authUser.setRole(Role.DOCTOR);
+        authUserRepository.save(authUser);
+
+        DoctorAuthProfileDTO doctorProfile = createGoogleDoctorProfile(normalizedEmail, normalizedName);
+        authUser.setDoctorId(doctorProfile.getId());
+        return authUserRepository.save(authUser);
+    }
+
+    private DoctorAuthProfileDTO createGoogleDoctorProfile(String normalizedEmail, String normalizedName) {
+        final int maxAttempts = 5;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                String serviceToken = jwtUtil.generateServiceToken(normalizedEmail);
+                String candidatePhone = generateGoogleFallbackPhone();
+                return doctorClient.createDoctorProfile(
+                        normalizedEmail,
+                        normalizedName,
+                        candidatePhone,
+                        serviceToken
+                );
+            } catch (HttpStatusCodeException e) {
+                HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
+                String message = extractDownstreamMessage(e.getResponseBodyAsString(), "Google account registration failed");
+                boolean phoneConflict = status == HttpStatus.CONFLICT
+                        && message != null
+                        && message.toLowerCase(Locale.ROOT).contains("phone");
+                if (phoneConflict && attempt < maxAttempts) {
+                    continue;
+                }
+                throw new ResponseStatusException(status, message);
+            } catch (Exception e) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Google account registration failed. Please try again."
+                );
+            }
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "Google account registration failed. Please try again."
+        );
+    }
+
+    private String normalizeGoogleDisplayName(String name, String email) {
+        if (name != null && !name.isBlank()) {
+            return name.trim();
+        }
+        int atIndex = email.indexOf('@');
+        String fallback = atIndex > 0 ? email.substring(0, atIndex) : "Doctor";
+        return fallback.length() > 120 ? fallback.substring(0, 120) : fallback;
+    }
+
+    private String generateGoogleFallbackPhone() {
+        String digits = UUID.randomUUID().toString().replaceAll("[^0-9]", "");
+        if (digits.length() < 9) {
+            digits = (digits + "000000000").substring(0, 9);
+        } else {
+            digits = digits.substring(0, 9);
+        }
+        return "+919" + digits;
     }
 
     private record ResolvedLoginContext(String email, Role role, Long doctorId, String phone) {
