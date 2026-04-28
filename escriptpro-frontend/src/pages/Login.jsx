@@ -41,7 +41,7 @@ function Login() {
           { theme: 'outline', size: 'large' }
         )
       }
-    // } making a small change
+    }
 
     if (window.google) {
       initializeGoogleSignIn()
