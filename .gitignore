@@ -62,3 +62,8 @@ uploads/
 
 # Ignore local VS Code workspace history
 .history/
+
+
+.config.json
+config.json
+new-config.yaml
