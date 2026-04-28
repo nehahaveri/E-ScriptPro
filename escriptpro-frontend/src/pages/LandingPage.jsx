@@ -38,6 +38,7 @@ import {
   ChecklistIllustration,
   HospitalBedIllustration,
 } from '../components/MedicalIllustrations.jsx'
+import Privacy from './Privacy'
 
 /* ─────────────────────────────────────────────
    helpers
@@ -701,6 +702,7 @@ function Footer() {
           <a href="#features" className="text-[12px] text-slate-400 transition hover:text-slate-600">Features</a>
           <a href="#story" className="text-[12px] text-slate-400 transition hover:text-slate-600">Story</a>
           <Link to="/login" className="text-[12px] text-slate-400 transition hover:text-slate-600">Login</Link>
+          <Link to="/privacy" className="text-[12px] text-slate-400 transition hover:text-slate-600">Privacy Policy</Link>
         </div>
       </div>
     </footer>
