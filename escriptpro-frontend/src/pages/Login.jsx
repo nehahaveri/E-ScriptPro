@@ -33,7 +33,7 @@ function Login() {
     const initializeGoogleSignIn = () => {
       if (window.google && window.google.accounts) {
         window.google.accounts.id.initialize({
-          client_id: '212261831277-3u8ahr4l7519oqvsviehqslv2p13m80n.apps.googleusercontent.com',
+          client_id: '157300149121-1rkou6bg3dgm67g954di2avp6hnpih2i.apps.googleusercontent.com',
           callback: handleGoogleSignIn,
         })
         window.google.accounts.id.renderButton(
