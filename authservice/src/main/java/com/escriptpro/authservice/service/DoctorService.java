@@ -619,6 +619,10 @@ public class DoctorService {
         return signupRequestDTO.getRole() == null ? Role.DOCTOR : signupRequestDTO.getRole();
     }
 
+    private Role resolveRequestedRole(InitiateSignupRequestDTO initiateSignupRequestDTO) {
+        return initiateSignupRequestDTO.getRole() == null ? Role.DOCTOR : initiateSignupRequestDTO.getRole();
+    }
+
     private String requireValue(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
