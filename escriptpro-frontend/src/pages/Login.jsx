@@ -80,7 +80,7 @@ function Login() {
       localStorage.removeItem('savedLoginPrefs')
     }
   }
-
+//  making a mark
   const finalizeLogin = (token, loginIdentifier, resolvedRole, resolvedDoctorId) => {
     if (!token) {
       setError('Login failed. Token not received.')

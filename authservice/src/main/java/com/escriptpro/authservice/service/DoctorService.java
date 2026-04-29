@@ -40,6 +40,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.Locale;
 
+/**
+ * DoctorService - Handles doctor authentication, signup with OTP verification, and login operations
+ */
 @Service
 public class DoctorService {
 

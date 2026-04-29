@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * ReceptionistService - Manages receptionist profiles and operations
+ */
 @Service
 public class ReceptionistService {
 

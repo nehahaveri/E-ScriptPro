@@ -12,6 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * DoctorService - Manages doctor profiles, validations, and asset uploads to S3
+ */
 @Service
 public class DoctorService {
 

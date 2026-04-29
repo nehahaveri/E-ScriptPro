@@ -11,6 +11,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+/**
+ * MedicineService - Provides medicine database search and filtering functionality
+ */
 @Service
 public class MedicineService {
 

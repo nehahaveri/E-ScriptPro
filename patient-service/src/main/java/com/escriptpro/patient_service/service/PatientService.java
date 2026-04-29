@@ -27,6 +27,9 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+/**
+ * PatientService - Manages patient profiles, medical history, and appointment operations
+ */
 @Service
 public class PatientService {
     private static final String DEFAULT_APPOINTMENT_STATUS = "BOOKED";

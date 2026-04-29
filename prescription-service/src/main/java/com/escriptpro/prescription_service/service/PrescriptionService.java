@@ -51,6 +51,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
+/**
+ * PrescriptionService - Handles prescription creation, management, and status tracking
+ */
 @Service
 public class PrescriptionService {
 
