@@ -1102,7 +1102,6 @@ export default function LandingPage() {
       <Features />
       <HowItWorks />
       <Testimonials />
-      <Stats />
       <FAQ />
       <FinalCTA />
       <Footer />
