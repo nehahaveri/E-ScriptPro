@@ -9,6 +9,9 @@ import com.escriptpro.authservice.dto.LoginResponseDTO;
 import com.escriptpro.authservice.dto.ResetPasswordRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
 import com.escriptpro.authservice.dto.VerifyOtpRequestDTO;
+import com.escriptpro.authservice.dto.InitiateSignupRequestDTO;
+import com.escriptpro.authservice.dto.InitiateSignupResponseDTO;
+import com.escriptpro.authservice.dto.VerifySignupOtpRequestDTO;
 import com.escriptpro.authservice.service.DoctorService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,6 +32,16 @@ public class AuthController {
     @PostMapping("/signup")
     public AuthResponseDTO signup(@Valid @RequestBody SignupRequestDTO signupRequestDTO) {
         return doctorService.registerDoctor(signupRequestDTO);
+    }
+
+    @PostMapping("/signup/initiate")
+    public InitiateSignupResponseDTO initiateSignup(@Valid @RequestBody InitiateSignupRequestDTO initiateSignupRequestDTO) {
+        return doctorService.initiateSignupDoctor(initiateSignupRequestDTO);
+    }
+
+    @PostMapping("/signup/verify-otp")
+    public AuthResponseDTO verifySignupOtp(@Valid @RequestBody VerifySignupOtpRequestDTO verifySignupOtpRequestDTO) {
+        return doctorService.verifySignupOtp(verifySignupOtpRequestDTO);
     }
 
     @PostMapping("/login")
