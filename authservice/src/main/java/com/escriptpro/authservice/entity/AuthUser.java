@@ -52,6 +52,16 @@ public class AuthUser {
 
     private LocalDateTime mfaChallengeExpiresAt;
 
+    @Column(unique = true)
+    private String signupToken;
+
+    private LocalDateTime signupTokenExpiresAt;
+
+    // Temporary storage during signup OTP flow
+    private String pendingName;
+
+    private String pendingPhone;
+
     @PrePersist
     void applyDefaults() {
         if (role == null) {

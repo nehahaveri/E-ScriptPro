@@ -17,6 +17,9 @@ import com.escriptpro.authservice.dto.ReceptionistProfileDTO;
 import com.escriptpro.authservice.dto.ResetPasswordRequestDTO;
 import com.escriptpro.authservice.dto.SignupRequestDTO;
 import com.escriptpro.authservice.dto.VerifyOtpRequestDTO;
+import com.escriptpro.authservice.dto.InitiateSignupRequestDTO;
+import com.escriptpro.authservice.dto.InitiateSignupResponseDTO;
+import com.escriptpro.authservice.dto.VerifySignupOtpRequestDTO;
 import com.escriptpro.authservice.entity.AuthUser;
 import com.escriptpro.authservice.entity.Role;
 import com.escriptpro.authservice.mfa.MfaProperties;
@@ -131,6 +134,115 @@ public class DoctorService {
         String normalizedPhone = normalizePhone(requireValue(signupRequestDTO.getPhone(), "Phone number is required"));
         String normalizedName = requireValue(signupRequestDTO.getName(), "Name is required");
 
+        authUserRepository.save(authUser);
+
+        DoctorAuthProfileDTO doctorProfile;
+        try {
+            String serviceToken = jwtUtil.generateServiceToken(normalizedEmail);
+            doctorProfile = doctorClient.createDoctorProfile(
+                    normalizedEmail,
+                    normalizedName,
+                    normalizedPhone,
+                    serviceToken
+            );
+            authUser.setDoctorId(doctorProfile.getId());
+            authUserRepository.save(authUser);
+        } catch (HttpStatusCodeException e) {
+            log.error("Doctor-service profile creation failed for email: {}.",
+                    normalizedEmail, e);
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(e.getStatusCode().value()),
+                    extractDownstreamMessage(e.getResponseBodyAsString(), "Account creation failed. Please try again.")
+            );
+        } catch (Exception e) {
+            log.error("Doctor-service profile creation failed for email: {}. Rolling back signup.",
+                    normalizedEmail, e);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Account creation failed. Please try again."
+            );
+        }
+
+        String token = issueAccessToken(authUser, doctorProfile.getId());
+        return new AuthResponseDTO("Doctor registered successfully", token, doctorProfile.getId(), effectiveRole(authUser));
+    }
+
+    @Transactional
+    public InitiateSignupResponseDTO initiateSignupDoctor(InitiateSignupRequestDTO requestDTO) {
+        String normalizedEmail = requireValue(requestDTO.getEmail(), "Email is required").toLowerCase();
+        String rawPassword = requireValue(requestDTO.getPassword(), "Password is required");
+        String confirmPassword = requireValue(requestDTO.getConfirmPassword(), "Confirm password is required");
+        Role requestedRole = resolveRequestedRole(requestDTO);
+
+        if (!rawPassword.equals(confirmPassword)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Passwords do not match");
+        }
+
+        if (authUserRepository.findByEmail(normalizedEmail).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account with this email already exists");
+        }
+
+        String normalizedName = requireValue(requestDTO.getName(), "Name is required");
+        String normalizedPhone = normalizePhone(requireValue(requestDTO.getPhone(), "Phone number is required"));
+
+        // Create temporary AuthUser for signup flow
+        AuthUser authUser = new AuthUser();
+        authUser.setEmail(normalizedEmail);
+        authUser.setPassword(passwordEncoder.encode(rawPassword));
+        authUser.setRole(requestedRole);
+        authUser.setPendingName(normalizedName);
+        authUser.setPendingPhone(normalizedPhone);
+
+        String signupToken = UUID.randomUUID().toString();
+        authUser.setSignupToken(signupToken);
+        authUser.setSignupTokenExpiresAt(LocalDateTime.now().plusMinutes(15));
+
+        // Generate and send OTP to phone
+        otpService.issueOtp(authUser, normalizedPhone);
+        authUserRepository.save(authUser);
+
+        return new InitiateSignupResponseDTO(
+                "OTP sent successfully to your phone. Please enter the OTP to verify your identity.",
+                signupToken
+        );
+    }
+
+    @Transactional
+    public AuthResponseDTO verifySignupOtp(VerifySignupOtpRequestDTO requestDTO) {
+        String signupToken = requireValue(requestDTO.getSignupToken(), "Signup token is required");
+        String otp = requireValue(requestDTO.getOtp(), "OTP is required");
+
+        AuthUser authUser = authUserRepository.findBySignupToken(signupToken)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired signup token"));
+
+        if (authUser.getSignupTokenExpiresAt() == null || authUser.getSignupTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Signup token has expired. Please signup again.");
+        }
+
+        if (!otpService.verifyOtp(authUser, otp)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OTP");
+        }
+
+        // Clear OTP
+        otpService.clearOtp(authUser);
+
+        // Get pending signup details
+        String normalizedEmail = authUser.getEmail();
+        String normalizedName = authUser.getPendingName();
+        String normalizedPhone = authUser.getPendingPhone();
+        Role role = authUser.getRole();
+
+        // Clear signup token and pending details
+        authUser.setSignupToken(null);
+        authUser.setSignupTokenExpiresAt(null);
+        authUser.setPendingName(null);
+        authUser.setPendingPhone(null);
+
+        if (role == Role.RECEPTIONIST) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Receptionist signup via OTP not yet supported");
+        }
+
+        // Doctor signup completion - create doctor profile
         authUserRepository.save(authUser);
 
         DoctorAuthProfileDTO doctorProfile;
