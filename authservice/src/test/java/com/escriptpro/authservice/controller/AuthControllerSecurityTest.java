@@ -123,12 +123,22 @@ class AuthControllerSecurityTest {
 
         @Bean
         EmailService emailService() {
-            return (email, resetToken) -> { };
+            return new EmailService() {
+                @Override
+                public void sendPasswordReset(String email, String resetToken) {
+                    // Mock implementation - do nothing
+                }
+
+                @Override
+                public void sendOtpEmail(String email, String otp) {
+                    // Mock implementation - do nothing
+                }
+            };
         }
 
         @Bean
         OtpService otpService() {
-            return new OtpService(null, (phone, code) -> { });
+            return new OtpService(null, emailService());
         }
 
         @Bean
