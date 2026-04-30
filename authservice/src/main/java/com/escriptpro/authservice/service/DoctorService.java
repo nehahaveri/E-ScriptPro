@@ -200,12 +200,12 @@ public class DoctorService {
         authUser.setSignupToken(signupToken);
         authUser.setSignupTokenExpiresAt(LocalDateTime.now().plusMinutes(15));
 
-        // Generate and send OTP to phone
-        otpService.issueOtp(authUser, normalizedPhone);
+        // Generate and send OTP to email
+        otpService.issueOtp(authUser, normalizedEmail);
         authUserRepository.save(authUser);
 
         return new InitiateSignupResponseDTO(
-                "OTP sent successfully to your phone. Please enter the OTP to verify your identity.",
+                "OTP sent successfully to your email. Please enter the OTP to verify your identity.",
                 signupToken
         );
     }
@@ -303,14 +303,14 @@ public class DoctorService {
             return new LoginResponseDTO("Login successful", false, null, token, resolvedDoctorId, effectiveRole(authUser));
         }
 
-        String mfaPhone = resolveMfaPhone(authUser, loginContext);
-        if (mfaPhone == null || mfaPhone.isBlank()) {
+        String mfaEmail = resolvedEmail;
+        if (mfaEmail == null || mfaEmail.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "MFA is not configured for this account");
         }
 
         authUser.setMfaChallengeToken(UUID.randomUUID().toString());
         authUser.setMfaChallengeExpiresAt(LocalDateTime.now().plusMinutes(10));
-        otpService.issueOtp(authUser, mfaPhone);
+        otpService.issueOtp(authUser, mfaEmail);
         authUserRepository.save(authUser);
 
         return new LoginResponseDTO(

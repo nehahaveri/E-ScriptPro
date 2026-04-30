@@ -1,7 +1,6 @@
 package com.escriptpro.authservice.service;
 
 import com.escriptpro.authservice.entity.AuthUser;
-import com.escriptpro.authservice.mfa.OtpDeliveryService;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,20 +12,20 @@ public class OtpService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final PasswordEncoder passwordEncoder;
-    private final OtpDeliveryService otpDeliveryService;
+    private final EmailService emailService;
 
     public OtpService(
             PasswordEncoder passwordEncoder,
-            OtpDeliveryService otpDeliveryService) {
+            EmailService emailService) {
         this.passwordEncoder = passwordEncoder;
-        this.otpDeliveryService = otpDeliveryService;
+        this.emailService = emailService;
     }
 
-    public void issueOtp(AuthUser authUser, String e164PhoneNumber) {
+    public void issueOtp(AuthUser authUser, String email) {
         String otp = generateOtp();
         authUser.setOtpCodeHash(passwordEncoder.encode(otp));
         authUser.setOtpExpiresAt(LocalDateTime.now().plusMinutes(5));
-        otpDeliveryService.sendOtp(e164PhoneNumber, otp);
+        emailService.sendOtpEmail(email, otp);
     }
 
     public boolean verifyOtp(AuthUser authUser, String otp) {

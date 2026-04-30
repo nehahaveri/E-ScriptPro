@@ -12,6 +12,7 @@ function Login() {
   const [otp, setOtp] = useState('')
   const [mfaChallengeToken, setMfaChallengeToken] = useState('')
   const [mfaPending, setMfaPending] = useState(false)
+  const [mfaEmail, setMfaEmail] = useState('')
   const [rememberMe, setRememberMe] = useState(Boolean(savedLoginPrefs.rememberMe))
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -112,6 +113,7 @@ function Login() {
 
     if (response.data?.mfaRequired) {
       setMfaPending(true)
+      setMfaEmail(loginIdentifier.includes('@') ? loginIdentifier : 'your registered email')
       setMfaChallengeToken(response.data?.mfaChallengeToken || '')
       setOtp('')
       return
@@ -204,7 +206,11 @@ function Login() {
         <h1 className="auth-title text-xl sm:text-2xl md:text-[1.8rem]">
           {selectedRole === 'RECEPTIONIST' ? 'Receptionist Login' : 'Doctor Login'}
         </h1>
-        {mfaPending && <p className="auth-copy text-xs sm:text-sm">Enter the 6-digit OTP sent to your registered mobile number.</p>}
+        {mfaPending && (
+          <p className="auth-copy text-xs sm:text-sm">
+            Enter the 6-digit OTP sent to <strong>{mfaEmail}</strong>.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           {!mfaPending && (

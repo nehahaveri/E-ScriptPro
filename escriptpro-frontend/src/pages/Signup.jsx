@@ -363,7 +363,7 @@ function Signup() {
                 Enter OTP
               </h1>
               <p className="auth-copy text-xs sm:text-sm">
-                We've sent a 6-digit OTP to <strong>{phone}</strong>. Enter it below to verify your identity.
+                We've sent a 6-digit OTP to <strong>{email}</strong>. Enter it below to verify your identity.
               </p>
 
               <form onSubmit={handleVerifyOtp} className="auth-form">
